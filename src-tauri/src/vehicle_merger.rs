@@ -62,7 +62,7 @@ impl VehicleMerger {
 
             // 1. Identify stream files & metadata files
             for file in &res.files {
-                if file.relative_path.starts_with("stream/") {
+                if file.relative_path.to_lowercase().starts_with("stream/") {
                     stream_files.push(file.name.clone());
                     all_stream_files.entry(file.name.clone())
                         .or_default()
@@ -199,6 +199,101 @@ impl VehicleMerger {
         Ok(merged_xml)
     }
 
+    pub fn merge_carcols_files(files: &[PathBuf]) -> Result<String, DextaError> {
+        let mut kits_items = Vec::new();
+        let mut lights_items = Vec::new();
+        let mut header = String::new();
+
+        for path in files {
+            let content = fs::read_to_string(path)?;
+            
+            if let Some(start_idx) = content.find("<kits>") {
+                if let Some(end_idx) = content.find("</kits>") {
+                    let block = &content[start_idx + "<kits>".len() .. end_idx];
+                    let trimmed = block.trim();
+                    if !trimmed.is_empty() {
+                        kits_items.push(trimmed.to_string());
+                    }
+                }
+            }
+
+            if let Some(start_idx) = content.find("<lights>") {
+                if let Some(end_idx) = content.find("</lights>") {
+                    let block = &content[start_idx + "<lights>".len() .. end_idx];
+                    let trimmed = block.trim();
+                    if !trimmed.is_empty() {
+                        lights_items.push(trimmed.to_string());
+                    }
+                }
+            }
+
+            if header.is_empty() {
+                if let Some(root_start) = content.find("<CVehicleModelInfo__InitDataList") {
+                    header = content[..root_start].to_string();
+                }
+            }
+        }
+
+        if header.is_empty() {
+            header = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n".to_string();
+        }
+
+        let merged_kits = kits_items.join("\n      ");
+        let merged_lights = lights_items.join("\n      ");
+
+        let merged_xml = format!(
+            "{header}<CVehicleModelInfo__InitDataList>\n  <kits>\n      {kits}\n  </kits>\n  <lights>\n      {lights}\n  </lights>\n</CVehicleModelInfo__InitDataList>",
+            header = header,
+            kits = merged_kits,
+            lights = merged_lights
+        );
+
+        Ok(merged_xml)
+    }
+
+    pub fn merge_root_items_xml(files: &[PathBuf], target_root: &str) -> Result<String, DextaError> {
+        let mut items = Vec::new();
+        let mut header = String::new();
+        let root_lower = target_root.to_lowercase();
+
+        for path in files {
+            let content = fs::read_to_string(path)?;
+            let content_lower = content.to_lowercase();
+            
+            let start_tag = format!("<{}", root_lower);
+            if let Some(start_pos) = content_lower.find(&start_tag) {
+                if let Some(tag_end_pos) = content[start_pos..].find('>') {
+                    let start_idx = start_pos + tag_end_pos + 1;
+                    let end_tag = format!("</{}>", root_lower);
+                    if let Some(end_idx) = content_lower.find(&end_tag) {
+                        let block_content = &content[start_idx..end_idx];
+                        items.push(block_content.trim().to_string());
+                    }
+                }
+            }
+
+            if header.is_empty() {
+                if let Some(r_start) = content_lower.find(&start_tag) {
+                    header = content[..r_start].to_string();
+                }
+            }
+        }
+
+        if header.is_empty() {
+            header = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n".to_string();
+        }
+
+        let merged_items = items.join("\n  ");
+        let merged_xml = format!(
+            "{header}<{root}>\n  {items}\n</{root}>",
+            header = header,
+            root = target_root,
+            items = merged_items
+        );
+
+        Ok(merged_xml)
+    }
+
     pub fn execute_merge(
         resources: &[FiveMResource],
         output_name: &str,
@@ -232,7 +327,7 @@ impl VehicleMerger {
             source_names.push(res.name.clone());
             for file in &res.files {
                 let src_path = Path::new(&file.path);
-                if file.relative_path.starts_with("stream/") {
+                if file.relative_path.to_lowercase().starts_with("stream/") {
                     let dest_file = stream_dest.join(&file.name);
                     fs::copy(src_path, &dest_file)?;
                     copied_stream_files.push(file.name.clone());

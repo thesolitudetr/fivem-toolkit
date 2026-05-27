@@ -46,10 +46,32 @@ export const VehicleMerger: React.FC = () => {
         const addons = [...scannedAddons];
 
         for (const path of selected) {
-          if (!paths.includes(path)) {
-            paths.push(path);
-            const res = await invoke<FiveMResource>('scan_resource', { path });
-            addons.push(res);
+          try {
+            // Check if the directory contains multiple subfolder resources (collection folder)
+            const subResources = await invoke<FiveMResource[]>('scan_collection', { path });
+            if (subResources && subResources.length > 0) {
+              for (const subRes of subResources) {
+                if (!paths.includes(subRes.path)) {
+                  paths.push(subRes.path);
+                  addons.push(subRes);
+                }
+              }
+            } else {
+              // Otherwise, add as a single resource
+              if (!paths.includes(path)) {
+                paths.push(path);
+                const res = await invoke<FiveMResource>('scan_resource', { path });
+                addons.push(res);
+              }
+            }
+          } catch (err: any) {
+            console.error(`Error scanning path ${path}:`, err);
+            // If scanning fails (e.g. no permission or empty), still attempt scan_resource to show error in UI
+            if (!paths.includes(path)) {
+              paths.push(path);
+              const res = await invoke<FiveMResource>('scan_resource', { path });
+              addons.push(res);
+            }
           }
         }
 

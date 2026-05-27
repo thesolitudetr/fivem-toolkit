@@ -63,7 +63,7 @@ impl StreamAnalyzer {
             *category_counts.entry(cat.clone()).or_insert(0) += 1;
 
             // Size thresholds warning checks
-            if file.relative_path.starts_with("stream/") {
+            if file.relative_path.to_lowercase().starts_with("stream/") {
                 if file.category == "ytd" && file.size > thresholds.large_ytd {
                     let severity = if file.size > thresholds.large_ytd * 2 {
                         "critical".to_string()

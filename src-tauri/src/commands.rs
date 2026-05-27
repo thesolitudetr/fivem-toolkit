@@ -215,3 +215,9 @@ pub fn open_app_data_path(state: State<'_, AppState>) -> Result<String, DextaErr
     let storage = state.storage.lock().map_err(|e| DextaError::Other(e.to_string()))?;
     Ok(storage.get_db_path())
 }
+
+#[tauri::command]
+pub fn read_text_file(path: String) -> Result<String, DextaError> {
+    let content = std::fs::read_to_string(path)?;
+    Ok(content)
+}

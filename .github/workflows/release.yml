@@ -17,6 +17,8 @@ jobs:
             args: ''
           - platform: 'windows-latest'
             args: ''
+          - platform: 'macos-latest'
+            args: ''
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -61,3 +63,12 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
+
+      - name: Upload Windows portable binary
+        if: matrix.platform == 'windows-latest'
+        shell: bash
+        run: |
+          cp src-tauri/target/release/dexta-toolkit.exe "Dexta Toolkit.exe"
+          gh release upload ${{ github.ref_name }} "Dexta Toolkit.exe" --clobber
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -72,7 +72,7 @@ impl MetaFixer {
             let is_lua = file.relative_path.ends_with(".lua") && file.name != "fxmanifest.lua" && file.name != "__resource.lua";
             
             // Check if this file is mentioned in manifest
-            if (is_meta || is_lua) && !file.relative_path.starts_with("stream/") {
+            if (is_meta || is_lua) && !file.relative_path.to_lowercase().starts_with("stream/") {
                 let found = declared_files.contains(&file.relative_path) 
                     || declared_files.contains(&format!("./{}", file.relative_path));
                 

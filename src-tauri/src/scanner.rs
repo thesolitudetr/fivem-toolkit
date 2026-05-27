@@ -69,17 +69,23 @@ impl ResourceDetector {
         let mut manifest_type = "none".to_string();
         let mut manifest_content = String::new();
 
-        let fxmanifest = canonical_path.join("fxmanifest.lua");
-        let resource_lua = canonical_path.join("__resource.lua");
+        let mut manifest_path_opt = None;
+        if let Ok(entries) = fs::read_dir(&canonical_path) {
+            for entry in entries.flatten() {
+                let name_lower = entry.file_name().to_string_lossy().to_lowercase();
+                if name_lower == "fxmanifest.lua" {
+                    manifest_path_opt = Some((entry.path(), "fxmanifest".to_string()));
+                    break;
+                } else if name_lower == "__resource.lua" && manifest_path_opt.is_none() {
+                    manifest_path_opt = Some((entry.path(), "resource".to_string()));
+                }
+            }
+        }
 
-        if fxmanifest.exists() {
+        if let Some((manifest_path, m_type)) = manifest_path_opt {
             has_manifest = true;
-            manifest_type = "fxmanifest".to_string();
-            manifest_content = fs::read_to_string(&fxmanifest).unwrap_or_default();
-        } else if resource_lua.exists() {
-            has_manifest = true;
-            manifest_type = "resource".to_string();
-            manifest_content = fs::read_to_string(&resource_lua).unwrap_or_default();
+            manifest_type = m_type;
+            manifest_content = fs::read_to_string(manifest_path).unwrap_or_default();
         }
 
         let mut files = Vec::new();
@@ -105,7 +111,7 @@ impl ResourceDetector {
 
                 let category = Self::classify_file(file_path);
 
-                if relative.starts_with("stream/") {
+                if relative.to_lowercase().starts_with("stream/") {
                     stream_size += size;
                 }
 
@@ -149,11 +155,21 @@ impl ResourceDetector {
             let entry = entry?;
             let entry_path = entry.path();
             if entry_path.is_dir() {
-                // If it contains a manifest or contains stream/data/yft/ytd, treat as FiveM resource
-                let is_res = entry_path.join("fxmanifest.lua").exists() 
-                    || entry_path.join("__resource.lua").exists()
-                    || entry_path.join("stream").exists()
-                    || entry_path.join("data").exists();
+                // If it contains a manifest or contains stream/data (case-insensitive), treat as FiveM resource
+                let mut is_res = false;
+                if let Ok(sub_entries) = fs::read_dir(&entry_path) {
+                    for sub_entry in sub_entries.flatten() {
+                        let name_lower = sub_entry.file_name().to_string_lossy().to_lowercase();
+                        if name_lower == "fxmanifest.lua"
+                            || name_lower == "__resource.lua"
+                            || name_lower == "stream"
+                            || name_lower == "data"
+                        {
+                            is_res = true;
+                            break;
+                        }
+                    }
+                }
                 
                 if is_res {
                     if let Ok(res) = Self::scan_resource(&entry_path) {

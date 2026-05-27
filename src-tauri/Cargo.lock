@@ -784,6 +784,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "dexta-toolkit"
+version = "0.1.2"
+dependencies = [
+ "chrono",
+ "dirs",
+ "quick-xml 0.36.2",
+ "regex",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+ "tauri-plugin-opener",
+ "uuid",
+ "walkdir",
+ "zip",
+]
+
+[[package]]
 name = "digest"
 version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3559,26 +3579,6 @@ dependencies = [
  "webview2-com",
  "window-vibrancy",
  "windows",
-]
-
-[[package]]
-name = "tauri-app"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "dirs",
- "quick-xml 0.36.2",
- "regex",
- "serde",
- "serde_json",
- "sha2",
- "tauri",
- "tauri-build",
- "tauri-plugin-dialog",
- "tauri-plugin-opener",
- "uuid",
- "walkdir",
- "zip",
 ]
 
 [[package]]

@@ -35,17 +35,21 @@ export const PackBrowser: React.FC = () => {
 
       if (selected && typeof selected === 'string') {
         setPackPath(selected);
-        // We will read dexta_manifest.json directly. If not found, simulate read-only analysis.
         const res = await invoke<any>('scan_resource', { path: selected });
         
-        // Find dexta_manifest.json
         const manifestFile = res.files.find((f: any) => f.name === 'dexta_manifest.json');
         if (manifestFile) {
-          // Read content
-          const content = await fetchManifestContent(manifestFile.path);
-          setManifestData(content);
+          try {
+            const fileContent = await invoke<string>('read_text_file', { path: manifestFile.path });
+            const data = JSON.parse(fileContent);
+            setManifestData(data);
+          } catch (e) {
+            console.error('Error reading dexta_manifest.json, falling back to inferred:', e);
+            const inferred = inferPack(res);
+            setManifestData(inferred);
+            setErrorMsg(t.noManifestWarning);
+          }
         } else {
-          // Inferred analysis for arbitrary third-party packs
           const inferred = inferPack(res);
           setManifestData(inferred);
           setErrorMsg(t.noManifestWarning);
@@ -56,23 +60,6 @@ export const PackBrowser: React.FC = () => {
     }
   };
 
-  const fetchManifestContent = async (filePath: string) => {
-    // In Tauri, we can read file contents using invoke commands or simple fs plugin.
-    // For safety, let's parse via a tauri helper, or simulate reading
-    const res = await invoke<any>('scan_resource', { path: packPath });
-    const manifestFile = res.files.find((f: any) => f.name === 'dexta_manifest.json');
-    if (manifestFile) {
-      try {
-        const content = await invoke<any>('scan_resource', { path: packPath });
-        const data = JSON.parse(content.manifest_content || '{}');
-        return data;
-      } catch (e) {
-        return inferPack(res);
-      }
-    }
-    return inferPack(res);
-  };
-
   const inferPack = (res: any) => {
     // Collect stream files and XML references
     const yfts = res.files.filter((f: any) => f.category === 'yft').map((f: any) => f.name.replace('.yft', ''));
@@ -80,8 +67,8 @@ export const PackBrowser: React.FC = () => {
       timestamp: new Date().toISOString(),
       output_name: res.name,
       source_resources: yfts,
-      copied_stream_files: res.files.filter((f: any) => f.relative_path.startsWith('stream/')).map((f: any) => f.name),
-      merged_meta_files: res.files.filter((f: any) => f.relative_path.startsWith('data/')).map((f: any) => f.name),
+      copied_stream_files: res.files.filter((f: any) => f.relative_path.toLowerCase().startsWith('stream/')).map((f: any) => f.name),
+      merged_meta_files: res.files.filter((f: any) => f.relative_path.toLowerCase().startsWith('data/')).map((f: any) => f.name),
       warnings: [settings.language === 'tr'
         ? 'Çıkarımsal analiz: Orijinal kaynak bağlantıları belirsiz.'
         : 'Inferred analysis: Original resource linkages are uncertain.'],
