@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CHandlingDataMgr>
+  <HandlingData>
+    <Item type="CHandlingData">
+      <handlingName>testcar</handlingName>
+      <fMass value="1800.000000" />
+      <fInitialDragCoeff value="8.500000" />
+      <fDownforceModifier value="1.000000" />
+    </Item>
+  </HandlingData>
+</CHandlingDataMgr>

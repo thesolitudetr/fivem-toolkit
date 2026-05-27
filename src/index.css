@@ -1,0 +1,147 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    background-color: #05070e;
+    color: #e2e8f0;
+    font-family: 'Inter', sans-serif;
+    user-select: none;
+    overflow: hidden;
+  }
+}
+
+/* Custom Titlebar and Drag Controls */
+.titlebar {
+  height: 38px;
+  background: #090d16;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  user-select: none;
+}
+
+.titlebar-button {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  width: 46px;
+  height: 38px;
+  transition: background-color 0.15s ease;
+  color: #a0aec0;
+}
+
+.titlebar-button:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.titlebar-button.close:hover {
+  background-color: #e53e3e;
+  color: #fff;
+}
+
+/* Scrollbar Customization */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(9, 13, 22, 0.5);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.2);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.4);
+}
+
+/* Glassmorphism Classes */
+.glass-panel {
+  background: rgba(13, 19, 33, 0.7);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.glass-card {
+  background: rgba(18, 25, 41, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-card:hover {
+  background: rgba(22, 31, 52, 0.8);
+  border-color: rgba(99, 102, 241, 0.25);
+  box-shadow: 0 0 20px -4px rgba(99, 102, 241, 0.08);
+}
+
+/* Stat Cards — subtle depth */
+.stat-card {
+  background: linear-gradient(135deg, rgba(13, 19, 33, 0.9) 0%, rgba(18, 25, 41, 0.7) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.stat-card:hover {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: linear-gradient(135deg, rgba(16, 23, 40, 0.95) 0%, rgba(22, 31, 52, 0.8) 100%);
+}
+
+/* Tool / Feature Cards — premium hover */
+.tool-card {
+  background: rgba(14, 20, 35, 0.5);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.tool-card:hover {
+  background: rgba(18, 26, 44, 0.7);
+  box-shadow: 0 4px 24px -6px rgba(0, 0, 0, 0.3), 0 0 16px -4px rgba(99, 102, 241, 0.06);
+  transform: translateY(-1px);
+}
+
+.tool-card:active {
+  transform: translateY(0);
+}
+
+/* Premium Button Base Styles */
+button {
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+/* Premium Glow Effects */
+.purple-glow {
+  box-shadow: 0 0 25px -5px rgba(139, 92, 246, 0.15);
+}
+
+.cyan-glow {
+  box-shadow: 0 0 25px -5px rgba(6, 182, 212, 0.15);
+}
+
+.teal-glow {
+  box-shadow: 0 0 25px -5px rgba(16, 185, 129, 0.15);
+}
+
+.pink-glow {
+  box-shadow: 0 0 25px -5px rgba(236, 72, 153, 0.15);
+}
+
+.orange-glow {
+  box-shadow: 0 0 25px -5px rgba(245, 158, 11, 0.15);
+}
+
+/* Responsive Layout Adjustments */
+@media (max-width: 1440px) {
+  .stat-card p.text-base { font-size: 0.9rem; }
+}
+
+@media (max-width: 1024px) {
+  .stat-card p.text-base { font-size: 0.85rem; }
+}
