@@ -1,4 +1,4 @@
-# Licensing Architecture & Integration Strategy
+# Licensing Architecture & Integration Strategy (will not be applied)
 
 This document outlines how Dexta Toolkit implements its **Free / Pro** tier segregation, and how to securely connect online server-verified licenses (like Tebex or custom endpoints) in production builds.
 
