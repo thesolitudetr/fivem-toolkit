@@ -47,10 +47,10 @@ Dexta Toolkit packages essential utilities into a fast, unified developer consol
 Here are some screenshots of the application:
 
 <div align="center">
-  <img src="docs/screenshots/dashboard.png" alt="Dashboard" width="600" />
+  <img src="docs/screenshots/dexta-toolkit_Hxeal9WPC4.png" alt="Dashboard" width="600" />
   <p><i>Sleek and comprehensive Dashboard featuring resource statistics, active logs, and one-click update checks.</i></p>
   
-  <img src="docs/screenshots/merger.png" alt="Vehicle Merger" width="600" />
+  <img src="docs/screenshots/dexta-toolkit_nxcrwg2Tt1.png" alt="Vehicle Merger" width="600" />
   <p><i>GPU-accelerated interface for zero-clash vehicle pack merging with conflict diagnostic notifications.</i></p>
 </div>
 
