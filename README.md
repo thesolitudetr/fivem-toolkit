@@ -124,6 +124,14 @@ The output files will be generated under:
 
 ---
 
+## 🆕 Changelog
+
+### v0.1.5
+* **⚡ Structural XML Vehicle Merger Upgrade**: Rewrote the XML merger module using a universal structural XML tokenizer. This solves the issue where merged vehicle packs could not be spawned in-game. It correctly preserves `<residentTxd>`, `<residentAnims>`, `<txdRelationships>` (in `vehicles.meta`), `<Sirens>` and `<Wheels>` (in `carcols.meta`), `<VehicleLayoutInfos>` (in `vehiclelayouts.meta`), and writes standard-compliant `<CVehicleModelInfoVariation>` tags (in `carvariations.meta`).
+* **🖼️ YTD Texture Optimizer Module**: Integrates C# CodeWalker and Microsoft `texconv` toolchains to automatically downscale and optimize `.ytd` texture dictionaries in a single click, preventing FiveM memory overflow warnings.
+
+---
+
 ## 🛡️ License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

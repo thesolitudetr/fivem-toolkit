@@ -11,7 +11,7 @@ export const translations: Record<string, Record<string, string>> = {
     title: "Dexta Toolkit",
     subtitle: "FiveM Resource Toolkit",
     builtWith: "Dexta Software",
-    version: "v0.1.4",
+    version: "v0.1.5",
     welcome: "Welcome to Dexta Toolkit 👋",
     welcomeSub: "Powerful tools for building, analyzing, and optimizing FiveM resources.",
     totalResources: "Total Resources",
@@ -126,6 +126,7 @@ export const translations: Record<string, Record<string, string>> = {
     selectFolderToOptimize: "Select a folder to optimize...",
     noYtdFound: "No .ytd files found in this folder.",
     resolutionWarning: "Warning: Resizing to small resolutions may reduce quality in-game.",
+    onlyWindowsSupported: "Texture Optimizer is only supported on Windows due to DirectX and CodeWalker dependencies.",
     // Pack Browser Page
     packBrowserDesc: "Inspect, extract, or add resources into your generated vehicle packages.",
     selectPackPlaceholder: "Select a Dexta-generated pack resource folder...",
@@ -204,7 +205,7 @@ export const translations: Record<string, Record<string, string>> = {
     title: "Dexta Toolkit",
     subtitle: "FiveM Kaynak Aracı",
     builtWith: "Dexta Software",
-    version: "v0.1.4",
+    version: "v0.1.5",
     welcome: "Dexta Toolkit'e Hoş Geldiniz 👋",
     welcomeSub: "FiveM kaynaklarını oluşturmak, analiz etmek ve optimize etmek için güçlü araçlar.",
     totalResources: "Toplam Kaynak",
@@ -319,6 +320,7 @@ export const translations: Record<string, Record<string, string>> = {
     selectFolderToOptimize: "Optimize edilecek klasörü seçin...",
     noYtdFound: "Bu klasörde .ytd dosyası bulunamadı.",
     resolutionWarning: "Uyarı: Çok düşük çözünürlüklere küçültmek oyun içi kaliteyi azaltabilir.",
+    onlyWindowsSupported: "Doku Optimize Edici, DirectX ve CodeWalker bağımlılıkları nedeniyle şu anda yalnızca Windows işletim sisteminde desteklenmektedir.",
     // Pack Browser Page
     packBrowserDesc: "Oluşturduğunuz araç paketlerini inceleyin, çıkarın veya kaynak ekleyin.",
     selectPackPlaceholder: "Dexta tarafından oluşturulan bir paket kaynak klasörü seçin...",

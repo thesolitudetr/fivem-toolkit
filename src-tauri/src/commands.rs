@@ -228,51 +228,59 @@ pub fn optimize_textures(
     path: String,
     max_size: u32,
 ) -> Result<String, DextaError> {
-    use tauri::Manager;
-    #[cfg(target_os = "windows")]
-    use std::os::windows::process::CommandExt;
-
-    let resource_dir = app_handle
-        .path()
-        .resource_dir()
-        .map_err(|e| DextaError::Other(format!("Failed to get resource dir: {}", e)))?;
-
-    let optimizer_path = resource_dir.join("bin").join("ytd-optimizer.exe");
-    let texconv_path = resource_dir.join("bin").join("texconv.exe");
-
-    if !optimizer_path.exists() {
-        return Err(DextaError::Other(format!(
-            "ytd-optimizer.exe not found at resource path: {}",
-            optimizer_path.display()
-        )));
+    #[cfg(not(target_os = "windows"))]
+    {
+        return Err(DextaError::Other(
+            "onlyWindowsSupported".to_string()
+        ));
     }
-    if !texconv_path.exists() {
-        return Err(DextaError::Other(format!(
-            "texconv.exe not found at resource path: {}",
-            texconv_path.display()
-        )));
-    }
-
-    let mut cmd = std::process::Command::new(&optimizer_path);
-    cmd.arg(&path)
-       .arg(max_size.to_string())
-       .arg(&texconv_path);
 
     #[cfg(target_os = "windows")]
-    cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+    {
+        use tauri::Manager;
+        use std::os::windows::process::CommandExt;
 
-    let output = cmd.output()
-        .map_err(|e| DextaError::Other(format!("Failed to execute optimizer: {}", e)))?;
+        let resource_dir = app_handle
+            .path()
+            .resource_dir()
+            .map_err(|e| DextaError::Other(format!("Failed to get resource dir: {}", e)))?;
 
-    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+        let optimizer_path = resource_dir.join("bin").join("ytd-optimizer.exe");
+        let texconv_path = resource_dir.join("bin").join("texconv.exe");
 
-    if !output.status.success() {
-        return Err(DextaError::Other(format!(
-            "Optimizer exited with error:\n{}\n{}",
-            stdout, stderr
-        )));
+        if !optimizer_path.exists() {
+            return Err(DextaError::Other(format!(
+                "ytd-optimizer.exe not found at resource path: {}",
+                optimizer_path.display()
+            )));
+        }
+        if !texconv_path.exists() {
+            return Err(DextaError::Other(format!(
+                "texconv.exe not found at resource path: {}",
+                texconv_path.display()
+            )));
+        }
+
+        let mut cmd = std::process::Command::new(&optimizer_path);
+        cmd.arg(&path)
+           .arg(max_size.to_string())
+           .arg(&texconv_path);
+
+        cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+
+        let output = cmd.output()
+            .map_err(|e| DextaError::Other(format!("Failed to execute optimizer: {}", e)))?;
+
+        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+
+        if !output.status.success() {
+            return Err(DextaError::Other(format!(
+                "Optimizer exited with error:\n{}\n{}",
+                stdout, stderr
+            )));
+        }
+
+        Ok(stdout)
     }
-
-    Ok(stdout)
 }

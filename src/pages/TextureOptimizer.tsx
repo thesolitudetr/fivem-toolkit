@@ -65,7 +65,12 @@ export const TextureOptimizer: React.FC = () => {
       await loadDb(); // reload db logs
     } catch (e: any) {
       console.error(e);
-      setErrorMsg(e.message || 'Failed to optimize textures.');
+      const msg = e.message || '';
+      if (msg === 'onlyWindowsSupported' || msg.includes('onlyWindowsSupported')) {
+        setErrorMsg(t.onlyWindowsSupported);
+      } else {
+        setErrorMsg(msg || 'Failed to optimize textures.');
+      }
     } finally {
       setIsOptimizing(false);
     }

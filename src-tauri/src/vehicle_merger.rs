@@ -36,6 +36,14 @@ pub struct MergeReport {
     pub warnings: Vec<String>,
 }
 
+#[derive(Debug, Clone)]
+pub struct XmlNode {
+    pub tag_name: String,
+    pub attributes: String,
+    pub inner_content: String,
+    pub is_self_closing: bool,
+}
+
 pub struct VehicleMerger;
 
 impl VehicleMerger {
@@ -156,157 +164,115 @@ impl VehicleMerger {
         }
     }
 
-    // Merges content list inside an XML structure. E.g. merges <Item> nodes from <InitDatas> tags
-    pub fn merge_xml_files(files: &[PathBuf], target_root: &str, target_parent: &str) -> Result<String, DextaError> {
+    // Helper struct to represent a child XML element under the root tag
+    fn parse_child_nodes(content: &str) -> Vec<XmlNode> {
+        let mut nodes = Vec::new();
+        let mut pos = 0;
+
+        while let Some(start_idx) = content[pos..].find('<') {
+            let abs_start = pos + start_idx;
+
+            // Skip comments
+            if content[abs_start..].starts_with("<!--") {
+                if let Some(comment_end) = content[abs_start..].find("-->") {
+                    pos = abs_start + comment_end + 3;
+                    continue;
+                }
+            }
+
+            // Skip XML declarations
+            if content[abs_start..].starts_with("<?") {
+                if let Some(pi_end) = content[abs_start..].find("?>") {
+                    pos = abs_start + pi_end + 2;
+                    continue;
+                }
+            }
+
+            // Skip closing tags
+            if content[abs_start..].starts_with("</") {
+                if let Some(tag_end) = content[abs_start..].find('>') {
+                    pos = abs_start + tag_end + 1;
+                    continue;
+                }
+            }
+
+            // Parse opening tag
+            if let Some(tag_end) = content[abs_start..].find('>') {
+                let abs_tag_end = abs_start + tag_end;
+                let tag_header = &content[abs_start + 1..abs_tag_end];
+
+                let is_self_closing = tag_header.ends_with('/');
+                let clean_header = if is_self_closing {
+                    tag_header[..tag_header.len() - 1].trim()
+                } else {
+                    tag_header.trim()
+                };
+
+                let parts: Vec<&str> = clean_header.splitn(2, ' ').collect();
+                let tag_name = parts[0].to_string();
+                let attributes = if parts.len() > 1 {
+                    parts[1].to_string()
+                } else {
+                    String::new()
+                };
+
+                if is_self_closing {
+                    nodes.push(XmlNode {
+                        tag_name,
+                        attributes,
+                        inner_content: String::new(),
+                        is_self_closing: true,
+                    });
+                    pos = abs_tag_end + 1;
+                } else {
+                    let closing_tag = format!("</{}>", tag_name);
+                    if let Some(close_idx) = content[abs_tag_end..].find(&closing_tag) {
+                        let abs_close_start = abs_tag_end + close_idx;
+                        let inner_content = content[abs_tag_end + 1..abs_close_start].to_string();
+                        nodes.push(XmlNode {
+                            tag_name,
+                            attributes,
+                            inner_content,
+                            is_self_closing: false,
+                        });
+                        pos = abs_close_start + closing_tag.len();
+                    } else {
+                        pos = abs_tag_end + 1;
+                    }
+                }
+            } else {
+                pos = abs_start + 1;
+            }
+        }
+        nodes
+    }
+
+    // Helper to extract <Item> elements from a block of XML
+    fn extract_items(content: &str) -> Vec<String> {
         let mut items = Vec::new();
-        let mut header = String::new();
-
-        let parent_start = format!("<{}>", target_parent);
-        let parent_end = format!("</{}>", target_parent);
-
-        for path in files {
-            let content = fs::read_to_string(path)?;
-            
-            // Find parent block e.g., <InitDatas>...</InitDatas>
-            if let Some(start_idx) = content.find(&parent_start) {
-                if let Some(end_idx) = content.find(&parent_end) {
-                    let block_content = &content[start_idx + parent_start.len() .. end_idx];
-                    items.push(block_content.trim().to_string());
-                }
-            }
-
-            // Capture XML declaration or comments from the first file
-            if header.is_empty() {
-                if let Some(root_start) = content.find(&format!("<{}", target_root)) {
-                    header = content[..root_start].to_string();
-                }
-            }
-        }
-
-        if header.is_empty() {
-            header = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n".to_string();
-        }
-
-        let merged_items = items.join("\n      ");
-        let merged_xml = format!(
-            "{header}<{root}>\n  <{parent}>\n      {items}\n  </{parent}>\n</{root}>",
-            header = header,
-            root = target_root,
-            parent = target_parent,
-            items = merged_items
-        );
-
-        Ok(merged_xml)
-    }
-
-    /// Merges carcols.meta files: combines <Kits> and <Lights> sections from all sources.
-    /// Root tag: CVehicleModelInfoVarGlobal (case-insensitive detection)
-    pub fn merge_carcols_files(files: &[PathBuf]) -> Result<String, DextaError> {
-        let mut kits_items = Vec::new();
-        let mut lights_items = Vec::new();
-        let mut header = String::new();
-
-        for path in files {
-            let content = fs::read_to_string(path)?;
-            let content_lower = content.to_lowercase();
-            
-            if let Some(start_idx) = content_lower.find("<kits>") {
-                if let Some(end_idx) = content_lower.find("</kits>") {
-                    let block = &content[start_idx + "<kits>".len() .. end_idx];
-                    let trimmed = block.trim();
-                    if !trimmed.is_empty() {
-                        kits_items.push(trimmed.to_string());
+        let mut pos = 0;
+        while let Some(start_idx) = content[pos..].find("<Item") {
+            let abs_start = pos + start_idx;
+            if let Some(close_idx) = content[abs_start..].find("</Item>") {
+                let abs_close_end = abs_start + close_idx + "</Item>".len();
+                let item_block = content[abs_start..abs_close_end].to_string();
+                items.push(item_block);
+                pos = abs_close_end;
+            } else {
+                // Check self-closing Item
+                if let Some(tag_end) = content[abs_start..].find('>') {
+                    let abs_tag_end = abs_start + tag_end;
+                    let tag_header = &content[abs_start..=abs_tag_end];
+                    if tag_header.ends_with("/>") {
+                        items.push(tag_header.to_string());
+                        pos = abs_tag_end + 1;
+                        continue;
                     }
                 }
-            }
-
-            if let Some(start_idx) = content_lower.find("<lights>") {
-                if let Some(end_idx) = content_lower.find("</lights>") {
-                    let block = &content[start_idx + "<lights>".len() .. end_idx];
-                    let trimmed = block.trim();
-                    if !trimmed.is_empty() {
-                        lights_items.push(trimmed.to_string());
-                    }
-                }
-            }
-
-            if header.is_empty() {
-                if let Some(root_start) = content_lower.find("<cvehiclemodelinfovar") {
-                    header = content[..root_start].to_string();
-                }
+                pos = abs_start + 1;
             }
         }
-
-        if header.is_empty() {
-            header = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n".to_string();
-        }
-
-        let merged_kits = kits_items.join("\n      ");
-        let merged_lights = lights_items.join("\n      ");
-
-        let merged_xml = format!(
-            "{header}<CVehicleModelInfoVarGlobal>\n  <Kits>\n      {kits}\n  </Kits>\n  <Lights>\n      {lights}\n  </Lights>\n</CVehicleModelInfoVarGlobal>",
-            header = header,
-            kits = merged_kits,
-            lights = merged_lights
-        );
-
-        Ok(merged_xml)
-    }
-
-    /// Merges vehiclelayouts.meta files: combines <Layouts> and <txdRelationships> sections.
-    /// Root tag: CVehicleMetadataMgr
-    pub fn merge_vehiclelayouts_files(files: &[PathBuf]) -> Result<String, DextaError> {
-        let mut layout_items = Vec::new();
-        let mut txd_items = Vec::new();
-        let mut header = String::new();
-
-        for path in files {
-            let content = fs::read_to_string(path)?;
-            let content_lower = content.to_lowercase();
-
-            if let Some(start_idx) = content_lower.find("<layouts>") {
-                if let Some(end_idx) = content_lower.find("</layouts>") {
-                    let block = &content[start_idx + "<Layouts>".len() .. end_idx];
-                    let trimmed = block.trim();
-                    if !trimmed.is_empty() {
-                        layout_items.push(trimmed.to_string());
-                    }
-                }
-            }
-
-            if let Some(start_idx) = content_lower.find("<txdrelationships>") {
-                if let Some(end_idx) = content_lower.find("</txdrelationships>") {
-                    let block = &content[start_idx + "<txdRelationships>".len() .. end_idx];
-                    let trimmed = block.trim();
-                    if !trimmed.is_empty() {
-                        txd_items.push(trimmed.to_string());
-                    }
-                }
-            }
-
-            if header.is_empty() {
-                if let Some(root_start) = content_lower.find("<cvehiclemetadatamgr") {
-                    header = content[..root_start].to_string();
-                }
-            }
-        }
-
-        if header.is_empty() {
-            header = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n".to_string();
-        }
-
-        let merged_layouts = layout_items.join("\n      ");
-        let merged_txd = txd_items.join("\n      ");
-
-        let merged_xml = format!(
-            "{header}<CVehicleMetadataMgr>\n  <txdRelationships>\n      {txd}\n  </txdRelationships>\n  <Layouts>\n      {layouts}\n  </Layouts>\n</CVehicleMetadataMgr>",
-            header = header,
-            txd = merged_txd,
-            layouts = merged_layouts
-        );
-
-        Ok(merged_xml)
+        items
     }
 
     /// Auto-detect the root XML element tag from content.
@@ -331,44 +297,117 @@ impl VehicleMerger {
         }
         None
     }
-    pub fn merge_root_items_xml(files: &[PathBuf], target_root: &str) -> Result<String, DextaError> {
-        let mut items = Vec::new();
-        let mut header = String::new();
-        let root_lower = target_root.to_lowercase();
+
+    /// Universally merge multiple vehicle meta files by root tag detection,
+    /// grouping child elements, and combining lists of <Item> tags.
+    pub fn merge_vehicle_meta_files(files: &[PathBuf]) -> Result<String, DextaError> {
+        if files.is_empty() {
+            return Ok(String::new());
+        }
+
+        let first_content = fs::read_to_string(&files[0])?;
+        let root_tag = Self::detect_root_tag(&first_content)
+            .ok_or_else(|| DextaError::Other("Could not detect root XML tag in meta file".to_string()))?;
+
+        // Extract XML header before root tag
+        let root_start_tag = format!("<{}", root_tag);
+        let header = if let Some(pos) = first_content.find(&root_start_tag) {
+            first_content[..pos].to_string()
+        } else {
+            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n".to_string()
+        };
+
+        let mut grouped_nodes: HashMap<String, Vec<XmlNode>> = HashMap::new();
+        let mut tag_order: Vec<String> = Vec::new();
 
         for path in files {
             let content = fs::read_to_string(path)?;
-            let content_lower = content.to_lowercase();
-            
-            let start_tag = format!("<{}", root_lower);
-            if let Some(start_pos) = content_lower.find(&start_tag) {
-                if let Some(tag_end_pos) = content[start_pos..].find('>') {
-                    let start_idx = start_pos + tag_end_pos + 1;
-                    let end_tag = format!("</{}>", root_lower);
-                    if let Some(end_idx) = content_lower.find(&end_tag) {
-                        let block_content = &content[start_idx..end_idx];
-                        items.push(block_content.trim().to_string());
+
+            // Extract content inside <root_tag...> ... </root_tag>
+            let re_start = Regex::new(&format!(r#"<{}(?:\s+[^>]*)?>"#, regex::escape(&root_tag))).unwrap();
+            let start_idx = if let Some(m) = re_start.find(&content) {
+                m.end()
+            } else {
+                continue;
+            };
+
+            let end_tag = format!("</{}>", root_tag);
+            let end_idx = if let Some(pos) = content.rfind(&end_tag) {
+                pos
+            } else {
+                continue;
+            };
+
+            let inner_root_content = &content[start_idx..end_idx];
+            let nodes = Self::parse_child_nodes(inner_root_content);
+
+            for node in nodes {
+                if !grouped_nodes.contains_key(&node.tag_name) {
+                    grouped_nodes.insert(node.tag_name.clone(), Vec::new());
+                    tag_order.push(node.tag_name.clone());
+                }
+                grouped_nodes.get_mut(&node.tag_name).unwrap().push(node);
+            }
+        }
+
+        let mut merged_tags = Vec::new();
+        for tag_name in tag_order {
+            if let Some(node_list) = grouped_nodes.get(&tag_name) {
+                if node_list.is_empty() {
+                    continue;
+                }
+
+                // Treat as list if any file's version of the tag contains "<Item"
+                let is_list = node_list.iter().any(|n| n.inner_content.contains("<Item"));
+
+                if is_list {
+                    let mut all_items = Vec::new();
+                    for node in node_list {
+                        all_items.extend(Self::extract_items(&node.inner_content));
+                    }
+
+                    let merged_items = all_items.join("\n    ");
+                    let attrs_str = if !node_list[0].attributes.is_empty() {
+                        format!(" {}", node_list[0].attributes)
+                    } else {
+                        String::new()
+                    };
+
+                    merged_tags.push(format!(
+                        "  <{tag_name}{attrs_str}>\n    {merged_items}\n  </{tag_name}>",
+                        tag_name = tag_name,
+                        attrs_str = attrs_str,
+                        merged_items = merged_items
+                    ));
+                } else {
+                    // Non-list (e.g. residentTxd): keep first occurrence
+                    let first_node = &node_list[0];
+                    let attrs_str = if !first_node.attributes.is_empty() {
+                        format!(" {}", first_node.attributes)
+                    } else {
+                        String::new()
+                    };
+
+                    if first_node.is_self_closing {
+                        merged_tags.push(format!("  <{}{} />", tag_name, attrs_str));
+                    } else {
+                        merged_tags.push(format!(
+                            "  <{attrs}>{inner}</{tag}>",
+                            attrs = format!("{}{}", tag_name, attrs_str),
+                            inner = first_node.inner_content.trim(),
+                            tag = tag_name
+                        ));
                     }
                 }
             }
-
-            if header.is_empty() {
-                if let Some(r_start) = content_lower.find(&start_tag) {
-                    header = content[..r_start].to_string();
-                }
-            }
         }
 
-        if header.is_empty() {
-            header = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n".to_string();
-        }
-
-        let merged_items = items.join("\n  ");
+        let body = merged_tags.join("\n");
         let merged_xml = format!(
-            "{header}<{root}>\n  {items}\n</{root}>",
+            "{header}<{root_tag}>\n{body}\n</{root_tag}>",
             header = header,
-            root = target_root,
-            items = merged_items
+            root_tag = root_tag,
+            body = body
         );
 
         Ok(merged_xml)
@@ -424,97 +463,13 @@ impl VehicleMerger {
         let mut merged_meta_files = Vec::new();
         for (meta_name, paths) in meta_by_type {
             let dest_meta_path = data_dest.join(&meta_name);
-            if meta_name == "vehicles.meta" {
-                if let Ok(xml) = Self::merge_xml_files(&paths, "CVehicleModelInfo__InitDataList", "InitDatas") {
+            match Self::merge_vehicle_meta_files(&paths) {
+                Ok(xml) => {
                     fs::write(&dest_meta_path, xml)?;
                     merged_meta_files.push(meta_name);
-                } else {
-                    warnings.push("Failed merging vehicles.meta files structurally, skipped.".to_string());
                 }
-            } else if meta_name == "handling.meta" {
-                if let Ok(xml) = Self::merge_xml_files(&paths, "CHandlingDataMgr", "HandlingData") {
-                    fs::write(&dest_meta_path, xml)?;
-                    merged_meta_files.push(meta_name);
-                } else {
-                    warnings.push("Failed merging handling.meta files structurally, skipped.".to_string());
-                }
-            } else if meta_name == "carvariations.meta" {
-                if let Ok(xml) = Self::merge_xml_files(&paths, "CCarVariations", "variationData") {
-                    fs::write(&dest_meta_path, xml)?;
-                    merged_meta_files.push(meta_name);
-                } else {
-                    warnings.push("Failed merging carvariations.meta files structurally, skipped.".to_string());
-                }
-            } else if meta_name == "carcols.meta" {
-                // carcols has <Kits> and <Lights> sections (siren/light configurations)
-                if let Ok(xml) = Self::merge_carcols_files(&paths) {
-                    fs::write(&dest_meta_path, xml)?;
-                    merged_meta_files.push(meta_name);
-                } else {
-                    warnings.push("Failed merging carcols.meta files structurally, skipped.".to_string());
-                }
-            } else if meta_name == "vehiclelayouts.meta" {
-                // vehiclelayouts has <Layouts> and <txdRelationships> sections
-                if let Ok(xml) = Self::merge_vehiclelayouts_files(&paths) {
-                    fs::write(&dest_meta_path, xml)?;
-                    merged_meta_files.push(meta_name);
-                } else {
-                    warnings.push("Failed merging vehiclelayouts.meta files structurally, skipped.".to_string());
-                }
-            } else if meta_name == "dlctext.meta" {
-                // dlctext.meta: merge root items (CExtraTextMetaFile or similar)
-                if paths.len() == 1 {
-                    let content = fs::read_to_string(&paths[0])?;
-                    fs::write(&dest_meta_path, content)?;
-                    merged_meta_files.push(meta_name);
-                } else if let Ok(xml) = Self::merge_root_items_xml(&paths, "CExtraTextMetaFile") {
-                    fs::write(&dest_meta_path, xml)?;
-                    merged_meta_files.push(meta_name);
-                } else {
-                    // Fallback: copy first
-                    let content = fs::read_to_string(&paths[0])?;
-                    fs::write(&dest_meta_path, content)?;
-                    merged_meta_files.push(meta_name);
-                }
-            } else if meta_name.contains("contentunlocks") {
-                // *contentunlocks.meta files: merge root items
-                if paths.len() == 1 {
-                    let content = fs::read_to_string(&paths[0])?;
-                    fs::write(&dest_meta_path, content)?;
-                    merged_meta_files.push(meta_name);
-                } else if let Ok(xml) = Self::merge_root_items_xml(&paths, "SContentUnlocks") {
-                    fs::write(&dest_meta_path, xml)?;
-                    merged_meta_files.push(meta_name);
-                } else {
-                    // Fallback: copy first
-                    let content = fs::read_to_string(&paths[0])?;
-                    fs::write(&dest_meta_path, content)?;
-                    merged_meta_files.push(meta_name);
-                }
-            } else {
-                // For any other unknown meta types: attempt generic XML merge via root items
-                if paths.len() == 1 {
-                    let content = fs::read_to_string(&paths[0])?;
-                    fs::write(&dest_meta_path, content)?;
-                    merged_meta_files.push(meta_name);
-                } else {
-                    // Try to detect root element and merge
-                    let first_content = fs::read_to_string(&paths[0])?;
-                    let root_tag = Self::detect_root_tag(&first_content);
-                    if let Some(ref root) = root_tag {
-                        if let Ok(xml) = Self::merge_root_items_xml(&paths, root) {
-                            fs::write(&dest_meta_path, xml)?;
-                            merged_meta_files.push(meta_name);
-                        } else {
-                            fs::write(&dest_meta_path, &first_content)?;
-                            merged_meta_files.push(meta_name.clone());
-                            warnings.push(format!("Meta '{}': XML merge failed, copied first instance.", meta_name));
-                        }
-                    } else {
-                        fs::write(&dest_meta_path, &first_content)?;
-                        merged_meta_files.push(meta_name.clone());
-                        warnings.push(format!("Meta '{}': could not detect XML root, copied first instance.", meta_name));
-                    }
+                Err(e) => {
+                    warnings.push(format!("Failed merging {} structurally: {}", meta_name, e));
                 }
             }
         }
