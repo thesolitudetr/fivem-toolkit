@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useStore } from '../store';
 import { translations } from '../translations';
 import { invoke } from '@tauri-apps/api/core';
+import { openUrl } from '@tauri-apps/plugin-opener';
 import { 
   Settings as SettingsIcon, 
   Trash2, 
@@ -9,11 +10,21 @@ import {
   Globe, 
   Sliders, 
   AlertTriangle,
-  Info
+  Info,
+  RefreshCw,
+  Sparkles
 } from 'lucide-react';
 
 export const Settings: React.FC = () => {
-  const { settings, saveDbSettings, clearHistory } = useStore();
+  const { 
+    settings, 
+    saveDbSettings, 
+    clearHistory,
+    checkForUpdates,
+    updateAvailable,
+    latestVersion,
+    isCheckingUpdate
+  } = useStore();
   const t = translations[settings.language] || translations.en;
 
   const [lang, setLang] = useState(settings.language);
@@ -154,8 +165,58 @@ export const Settings: React.FC = () => {
           </button>
         </div>
 
-        {/* Right Col: Admin Actions */}
+        {/* Right Col: Admin & Update Actions */}
         <div className="flex flex-col gap-4">
+          {/* Update Checker Panel */}
+          <div className="glass-panel p-5 rounded-2xl border border-white/5 flex flex-col gap-4">
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+              <RefreshCw size={14} className={`text-amber-400 ${isCheckingUpdate ? 'animate-spin' : ''}`} />
+              <span>{t.updateConfigTitle}</span>
+            </h3>
+
+            <div className="flex flex-col gap-3">
+              {isCheckingUpdate ? (
+                <div className="text-xs text-slate-400 italic flex items-center gap-2">
+                  <RefreshCw size={12} className="animate-spin text-slate-500" />
+                  <span>{t.updateChecking}</span>
+                </div>
+              ) : updateAvailable ? (
+                <div className="flex flex-col gap-2">
+                  <div className="p-3 rounded-xl bg-orange-500/10 border border-orange-500/20 text-orange-400 text-xs font-semibold flex items-center gap-2">
+                    <Sparkles size={14} className="animate-pulse" />
+                    <span>{t.updateAvailableMsg.replace('{version}', latestVersion || '')}</span>
+                  </div>
+                  <button 
+                    onClick={async () => {
+                      try {
+                        await openUrl('https://github.com/thesolitudetr/fivem-toolkit');
+                      } catch (e) {
+                        console.error(e);
+                      }
+                    }}
+                    className="w-full py-2 rounded-xl bg-orange-600 hover:bg-orange-500 active:bg-orange-700 text-white text-xs font-bold cursor-pointer transition-all flex items-center justify-center gap-1.5 shadow-md shadow-orange-600/15"
+                  >
+                    {t.downloadUpdateBtn}
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  <div className="p-3 rounded-xl bg-slate-900 border border-white/5 text-slate-400 text-xs flex items-center gap-2">
+                    <Info size={14} className="text-emerald-400 shrink-0" />
+                    <span>{t.updateUpToDateMsg}</span>
+                  </div>
+                  <button 
+                    onClick={() => checkForUpdates()}
+                    className="w-full py-2 rounded-xl bg-slate-900 border border-slate-800 hover:bg-slate-850 hover:text-white text-xs text-slate-400 font-bold cursor-pointer transition-all flex items-center justify-center gap-1.5"
+                  >
+                    <RefreshCw size={12} />
+                    <span>{t.checkUpdatesBtn}</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
           <div className="glass-panel p-5 rounded-2xl border border-white/5 flex flex-col gap-4">
             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">{t.sysAdminTitle}</h3>
 

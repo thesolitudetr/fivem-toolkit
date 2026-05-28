@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useStore, FiveMResource } from '../store';
 import { translations } from '../translations';
 import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
+import { openUrl } from '@tauri-apps/plugin-opener';
 import { 
   Car, 
   Activity, 
@@ -31,9 +32,16 @@ export const Dashboard: React.FC = () => {
     setStreamReport,
     setValidationResult,
     setDependencyReport,
-    loadDb
+    loadDb,
+    checkForUpdates,
+    updateAvailable,
+    latestVersion
   } = useStore();
   const t = translations[settings.language] || translations.en;
+
+  useEffect(() => {
+    checkForUpdates();
+  }, []);
   
   const getActivityMessage = (act: any) => {
     let template = '';
@@ -134,12 +142,10 @@ export const Dashboard: React.FC = () => {
       name: t.vehicleMerger,
       desc: cardDescs.merger,
       icon: Car,
-      badge: 'FREE',
       color: 'from-violet-500/20 to-indigo-500/20',
       iconColor: 'text-violet-400',
       iconBg: 'bg-violet-500/15',
       borderHover: 'hover:border-violet-500/30',
-      badgeColor: 'bg-violet-500/10 text-violet-400 border border-violet-500/20',
       actionText: t.actionMerger
     },
     {
@@ -147,12 +153,10 @@ export const Dashboard: React.FC = () => {
       name: t.streamAnalyzer,
       desc: cardDescs.analyzer,
       icon: Activity,
-      badge: 'FREE',
       color: 'from-blue-500/20 to-cyan-500/20',
       iconColor: 'text-cyan-400',
       iconBg: 'bg-cyan-500/15',
       borderHover: 'hover:border-cyan-500/30',
-      badgeColor: 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20',
       actionText: t.actionAnalyzer
     },
     {
@@ -160,12 +164,10 @@ export const Dashboard: React.FC = () => {
       name: t.packBrowser,
       desc: cardDescs.browser,
       icon: FolderOpen,
-      badge: 'PRO',
       color: 'from-amber-500/20 to-orange-500/20',
       iconColor: 'text-orange-400',
       iconBg: 'bg-orange-500/15',
       borderHover: 'hover:border-orange-500/30',
-      badgeColor: 'bg-amber-500/10 text-amber-400 border border-amber-500/20',
       actionText: t.actionBrowser
     },
     {
@@ -173,12 +175,10 @@ export const Dashboard: React.FC = () => {
       name: t.dependencies,
       desc: cardDescs.deps,
       icon: Link2,
-      badge: 'PRO',
       color: 'from-teal-500/20 to-emerald-500/20',
       iconColor: 'text-emerald-400',
       iconBg: 'bg-emerald-500/15',
       borderHover: 'hover:border-emerald-500/30',
-      badgeColor: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20',
       actionText: t.actionDeps
     },
     {
@@ -186,12 +186,10 @@ export const Dashboard: React.FC = () => {
       name: t.metaFixer,
       desc: cardDescs.fixer,
       icon: FileCode,
-      badge: 'FREE',
       color: 'from-pink-500/20 to-rose-500/20',
       iconColor: 'text-pink-400',
       iconBg: 'bg-pink-500/15',
       borderHover: 'hover:border-pink-500/30',
-      badgeColor: 'bg-pink-500/10 text-pink-400 border border-pink-500/20',
       actionText: t.actionFixer
     },
     {
@@ -199,12 +197,10 @@ export const Dashboard: React.FC = () => {
       name: t.buildExport,
       desc: cardDescs.export,
       icon: Download,
-      badge: 'PRO',
       color: 'from-indigo-500/20 to-purple-500/20',
       iconColor: 'text-indigo-400',
       iconBg: 'bg-indigo-500/15',
       borderHover: 'hover:border-purple-500/30',
-      badgeColor: 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20',
       actionText: t.actionExport
     }
   ];
@@ -222,6 +218,37 @@ export const Dashboard: React.FC = () => {
             <p className="text-xs text-slate-400 mt-1">{t.welcomeSub}</p>
           </div>
         </div>
+
+        {/* Update Alert Banner */}
+        {updateAvailable && (
+          <div 
+            onClick={async () => {
+              try {
+                await openUrl('https://github.com/thesolitudetr/fivem-toolkit');
+              } catch (e) {
+                console.error(e);
+              }
+            }}
+            className="group relative overflow-hidden rounded-2xl p-4 bg-gradient-to-r from-orange-600/20 via-amber-600/10 to-transparent border border-orange-500/25 flex items-center justify-between cursor-pointer hover:border-orange-500/40 transition-all duration-300 shadow-lg shadow-orange-950/15"
+          >
+            <div className="flex items-center gap-3 relative z-10">
+              <div className="p-2 rounded-xl bg-orange-500/15 text-orange-400">
+                <Sparkles size={16} className="animate-pulse" />
+              </div>
+              <div>
+                <h3 className="text-xs font-bold text-white tracking-wide">
+                  {settings.language === 'tr' ? 'Güncelleme Mevcut!' : 'Update Available!'}
+                </h3>
+                <p className="text-[11px] text-slate-300 mt-0.5">
+                  {t.updateBannerText.replace('{version}', latestVersion || '')}
+                </p>
+              </div>
+            </div>
+            <button className="px-3.5 py-1.5 rounded-lg bg-orange-600 hover:bg-orange-500 active:bg-orange-700 text-white text-xs font-bold transition-all duration-200 shadow-md shadow-orange-600/20 group-hover:scale-105 cursor-pointer">
+              {t.downloadUpdateBtn}
+            </button>
+          </div>
+        )}
 
         {/* Stats Grid with depth */}
         <div className="grid grid-cols-4 gap-3">
@@ -260,9 +287,6 @@ export const Dashboard: React.FC = () => {
                     <div className={`p-2 rounded-lg ${card.iconBg} ${card.iconColor}`}>
                       <Icon size={17} />
                     </div>
-                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${card.badgeColor}`}>
-                      {card.badge === 'FREE' ? t.freeBadge : t.proBadge}
-                    </span>
                   </div>
                   <h3 className="text-[13px] font-bold text-white mb-1 leading-tight">{card.name}</h3>
                   <p className="text-[11px] text-slate-400 leading-snug line-clamp-2">{card.desc}</p>
@@ -285,7 +309,7 @@ export const Dashboard: React.FC = () => {
               <Sparkles size={14} />
             </div>
             <p className="text-[11px] text-slate-300 font-medium">
-              <span className="font-bold text-violet-400">{t.proTip}:</span> {t.proTipText}
+              <span className="font-bold text-violet-400">{t.tip}:</span> {t.tipText}
             </p>
           </div>
           <button 

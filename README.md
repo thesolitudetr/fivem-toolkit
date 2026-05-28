@@ -5,8 +5,8 @@
   <h3>A premium, high-performance desktop application for FiveM resource developers and server administrators.</h3>
   <p>Analyze, validate, merge, and clean-export your server assets with a sleek, GPU-accelerated interface powered by <b>Tauri, Rust, and React</b>.</p>
 
-  [![OS - Windows](https://img.shields.io/badge/OS-Windows-blue?style=flat-square&logo=windows)](https://github.com/thesolitudetr/dextatoolkit)
-  [![OS - Linux](https://img.shields.io/badge/OS-Linux-orange?style=flat-square&logo=linux)](https://github.com/thesolitudetr/dextatoolkit)
+  [![OS - Windows](https://img.shields.io/badge/OS-Windows-blue?style=flat-square&logo=windows)](https://github.com/thesolitudetr/fivem-toolkit)
+  [![OS - Linux](https://img.shields.io/badge/OS-Linux-orange?style=flat-square&logo=linux)](https://github.com/thesolitudetr/fivem-toolkit)
   [![Build - Tauri](https://img.shields.io/badge/Build-Tauri%20v2-8a2be2?style=flat-square&logo=tauri)](https://tauri.app/)
   [![Language - Rust](https://img.shields.io/badge/Language-Rust-dea584?style=flat-square&logo=rust)](https://www.rust-lang.org/)
   [![Language - TypeScript](https://img.shields.io/badge/Language-TypeScript-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
@@ -42,6 +42,20 @@ Dexta Toolkit packages essential utilities into a fast, unified developer consol
 
 ---
 
+## 📸 Screenshots
+
+Here are some screenshots of the application:
+
+<div align="center">
+  <img src="docs/screenshots/dashboard.png" alt="Dashboard" width="600" />
+  <p><i>Sleek and comprehensive Dashboard featuring resource statistics, active logs, and one-click update checks.</i></p>
+  
+  <img src="docs/screenshots/merger.png" alt="Vehicle Merger" width="600" />
+  <p><i>GPU-accelerated interface for zero-clash vehicle pack merging with conflict diagnostic notifications.</i></p>
+</div>
+
+---
+
 ## 🛠️ Tech Stack & Architecture
 
 Dexta Toolkit is engineered using modern, memory-safe, and high-performance components:
@@ -62,8 +76,8 @@ Ensure you have the following installed on your machine:
 ### 🚀 Running Locally
 1. Clone the repository:
    ```bash
-   git clone https://github.com/thesolitudetr/dextatoolkit.git
-   cd dextatoolkit
+   git clone https://github.com/thesolitudetr/fivem-toolkit.git
+   cd fivem-toolkit
    ```
 2. Install node dependencies:
    ```bash

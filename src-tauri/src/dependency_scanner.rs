@@ -1,10 +1,8 @@
 use serde::{Serialize, Deserialize};
-use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::collections::HashSet;
 use regex::Regex;
-use crate::errors::DextaError;
-use crate::scanner::{FiveMResource, ResourceDetector};
+use crate::scanner::FiveMResource;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct DependencyInfo {

@@ -9,12 +9,11 @@ import {
   AlertTriangle, 
   CheckCircle2, 
   HelpCircle,
-  Cpu,
-  Lock
+  Cpu
 } from 'lucide-react';
 
 export const DependencyScanner: React.FC = () => {
-  const { settings, isPro } = useStore();
+  const { settings } = useStore();
   const t = translations[settings.language] || translations.en;
 
   const [resourcePath, setResourcePath] = useState('');
@@ -90,12 +89,6 @@ export const DependencyScanner: React.FC = () => {
           <h2 className="text-2xl font-extrabold text-white tracking-tight">{t.depTitle}</h2>
           <p className="text-sm text-slate-400">{t.depDesc}</p>
         </div>
-        {!isPro && (
-          <span className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-violet-500/10 border border-violet-500/20 text-violet-400 text-xs font-bold shadow-md shadow-violet-500/5">
-            <Lock size={12} />
-            <span>{t.proFeature}</span>
-          </span>
-        )}
       </div>
 
       {/* Path Selector */}

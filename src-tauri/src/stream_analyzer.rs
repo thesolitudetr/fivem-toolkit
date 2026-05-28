@@ -2,7 +2,7 @@ use serde::{Serialize, Deserialize};
 use std::collections::HashMap;
 use std::fs;
 use crate::errors::DextaError;
-use crate::scanner::{FiveMResource, ResourceDetector};
+use crate::scanner::FiveMResource;
 use crate::storage::Thresholds;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

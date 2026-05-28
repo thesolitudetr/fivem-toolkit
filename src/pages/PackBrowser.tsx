@@ -10,12 +10,11 @@ import {
   Plus, 
   ExternalLink,
   Trash2,
-  Lock,
   Compass
 } from 'lucide-react';
 
 export const PackBrowser: React.FC = () => {
-  const { settings, isPro } = useStore();
+  const { settings } = useStore();
   const t = translations[settings.language] || translations.en;
 
   const [packPath, setPackPath] = useState('');
@@ -91,12 +90,6 @@ export const PackBrowser: React.FC = () => {
           <h2 className="text-2xl font-extrabold text-white tracking-tight">{t.packBrowser}</h2>
           <p className="text-sm text-slate-400">{t.packBrowserDesc}</p>
         </div>
-        {!isPro && (
-          <span className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-violet-500/10 border border-violet-500/20 text-violet-400 text-xs font-bold shadow-md shadow-violet-500/5">
-            <Lock size={12} />
-            <span>{t.proFeature}</span>
-          </span>
-        )}
       </div>
 
       {/* Path Selector */}

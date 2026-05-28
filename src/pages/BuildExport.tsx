@@ -9,12 +9,11 @@ import {
   AlertTriangle, 
   CheckCircle2, 
   FileArchive,
-  Lock,
   ArrowRight
 } from 'lucide-react';
 
 export const BuildExport: React.FC = () => {
-  const { settings, isPro, loadDb } = useStore();
+  const { settings, loadDb } = useStore();
   const t = translations[settings.language] || translations.en;
 
   const [srcDir, setSrcDir] = useState('');
@@ -93,12 +92,6 @@ export const BuildExport: React.FC = () => {
           <h2 className="text-2xl font-extrabold text-white tracking-tight">{t.buildExport}</h2>
           <p className="text-sm text-slate-400">{t.buildExportDesc}</p>
         </div>
-        {!isPro && (
-          <span className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-violet-500/10 border border-violet-500/20 text-violet-400 text-xs font-bold shadow-md shadow-violet-500/5">
-            <Lock size={12} />
-            <span>{t.proFeature}</span>
-          </span>
-        )}
       </div>
 
       <div className="grid grid-cols-3 gap-6">

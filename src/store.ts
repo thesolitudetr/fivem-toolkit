@@ -128,7 +128,6 @@ interface AppState {
   settings: AppSettings;
   recentActivity: RecentActivity[];
   recentProjects: RecentProject[];
-  isPro: boolean;
 
   // Selected paths / Workspace
   selectedPath: string;
@@ -140,6 +139,11 @@ interface AppState {
   mergePreview: MergePreview | null;
   validationResult: ValidationResult | null;
   dependencyReport: DependencyScanReport | null;
+
+  // Update checker state
+  latestVersion: string | null;
+  updateAvailable: boolean;
+  isCheckingUpdate: boolean;
 
   // Action setters
   setCurrentPage: (page: string) => void;
@@ -153,6 +157,7 @@ interface AppState {
   setValidationResult: (res: ValidationResult | null) => void;
   setDependencyReport: (rep: DependencyScanReport | null) => void;
   clearHistory: () => Promise<void>;
+  checkForUpdates: () => Promise<void>;
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -169,7 +174,9 @@ export const useStore = create<AppState>((set, get) => ({
   },
   recentActivity: [],
   recentProjects: [],
-  isPro: true, // completed tools unlocked for local developer access
+  latestVersion: null,
+  updateAvailable: false,
+  isCheckingUpdate: false,
 
   selectedPath: '',
   scannedResource: null,
@@ -223,6 +230,40 @@ export const useStore = create<AppState>((set, get) => ({
       set({ recentActivity: [], recentProjects: [] });
     } catch (e) {
       console.error('Failed to clear history:', e);
+    }
+  },
+
+  checkForUpdates: async () => {
+    set({ isCheckingUpdate: true });
+    try {
+      const response = await fetch('https://api.github.com/repos/thesolitudetr/fivem-toolkit/releases/latest');
+      if (!response.ok) throw new Error('Network response was not ok');
+      const data = await response.json();
+      const latest = data.tag_name;
+      const current = 'v0.1.3';
+      
+      const cleanCur = current.replace(/^v/, '');
+      const cleanLat = latest.replace(/^v/, '');
+      const curParts = cleanCur.split('.').map(Number);
+      const latParts = cleanLat.split('.').map(Number);
+      
+      let updateAvailable = false;
+      for (let i = 0; i < Math.max(curParts.length, latParts.length); i++) {
+        const curVal = curParts[i] || 0;
+        const latVal = latParts[i] || 0;
+        if (latVal > curVal) {
+          updateAvailable = true;
+          break;
+        }
+        if (curVal > latVal) {
+          break;
+        }
+      }
+      
+      set({ latestVersion: latest, updateAvailable, isCheckingUpdate: false });
+    } catch (e) {
+      console.error('Failed to check for updates:', e);
+      set({ isCheckingUpdate: false });
     }
   },
 }));

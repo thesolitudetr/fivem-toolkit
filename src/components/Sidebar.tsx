@@ -10,7 +10,6 @@ import {
   Link2, 
   Download, 
   Settings, 
-  Crown,
   Heart
 } from 'lucide-react';
 
@@ -81,21 +80,6 @@ export const Sidebar: React.FC = () => {
       </div>
 
       <div className="flex flex-col gap-4">
-        {/* Pro Promo Box */}
-        <div className="p-4 rounded-2xl bg-gradient-to-b from-[#131929] to-[#0c111e] border border-violet-500/10 shadow-lg shadow-indigo-950/20 relative overflow-hidden group">
-          <div className="absolute -top-10 -right-10 w-24 h-24 rounded-full bg-violet-600/10 blur-xl group-hover:bg-violet-600/20 transition-all duration-300" />
-          <div className="flex items-center gap-2 mb-2">
-            <Crown size={16} className="text-violet-400" />
-            <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider">{t.proUpgradeTitle}</h3>
-          </div>
-          <p className="text-[11px] text-slate-400 leading-relaxed mb-3">
-            {t.proUpgradeDesc}
-          </p>
-          <button className="w-full py-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-xs font-semibold hover:from-violet-500 hover:to-indigo-500 transition-all duration-200 cursor-pointer shadow-md shadow-violet-600/20">
-            {t.proUpgradeBtn}
-          </button>
-        </div>
-
         {/* Footer info */}
         <div className="flex items-center justify-between text-[10px] text-slate-500 px-2 font-medium">
           <div className="flex items-center gap-1.5">

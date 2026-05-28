@@ -1,11 +1,11 @@
 use serde::{Serialize, Deserialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use regex::Regex;
-use sha2::{Sha256, Digest};
+
 use crate::errors::DextaError;
-use crate::scanner::{FiveMResource, ResourceDetector, ScannedFile};
+use crate::scanner::FiveMResource;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct MergeVehicleInfo {
@@ -199,6 +199,8 @@ impl VehicleMerger {
         Ok(merged_xml)
     }
 
+    /// Merges carcols.meta files: combines <Kits> and <Lights> sections from all sources.
+    /// Root tag: CVehicleModelInfoVarGlobal (case-insensitive detection)
     pub fn merge_carcols_files(files: &[PathBuf]) -> Result<String, DextaError> {
         let mut kits_items = Vec::new();
         let mut lights_items = Vec::new();
@@ -206,9 +208,10 @@ impl VehicleMerger {
 
         for path in files {
             let content = fs::read_to_string(path)?;
+            let content_lower = content.to_lowercase();
             
-            if let Some(start_idx) = content.find("<kits>") {
-                if let Some(end_idx) = content.find("</kits>") {
+            if let Some(start_idx) = content_lower.find("<kits>") {
+                if let Some(end_idx) = content_lower.find("</kits>") {
                     let block = &content[start_idx + "<kits>".len() .. end_idx];
                     let trimmed = block.trim();
                     if !trimmed.is_empty() {
@@ -217,8 +220,8 @@ impl VehicleMerger {
                 }
             }
 
-            if let Some(start_idx) = content.find("<lights>") {
-                if let Some(end_idx) = content.find("</lights>") {
+            if let Some(start_idx) = content_lower.find("<lights>") {
+                if let Some(end_idx) = content_lower.find("</lights>") {
                     let block = &content[start_idx + "<lights>".len() .. end_idx];
                     let trimmed = block.trim();
                     if !trimmed.is_empty() {
@@ -228,7 +231,7 @@ impl VehicleMerger {
             }
 
             if header.is_empty() {
-                if let Some(root_start) = content.find("<CVehicleModelInfo__InitDataList") {
+                if let Some(root_start) = content_lower.find("<cvehiclemodelinfovar") {
                     header = content[..root_start].to_string();
                 }
             }
@@ -242,7 +245,7 @@ impl VehicleMerger {
         let merged_lights = lights_items.join("\n      ");
 
         let merged_xml = format!(
-            "{header}<CVehicleModelInfo__InitDataList>\n  <kits>\n      {kits}\n  </kits>\n  <lights>\n      {lights}\n  </lights>\n</CVehicleModelInfo__InitDataList>",
+            "{header}<CVehicleModelInfoVarGlobal>\n  <Kits>\n      {kits}\n  </Kits>\n  <Lights>\n      {lights}\n  </Lights>\n</CVehicleModelInfoVarGlobal>",
             header = header,
             kits = merged_kits,
             lights = merged_lights
@@ -251,6 +254,83 @@ impl VehicleMerger {
         Ok(merged_xml)
     }
 
+    /// Merges vehiclelayouts.meta files: combines <Layouts> and <txdRelationships> sections.
+    /// Root tag: CVehicleMetadataMgr
+    pub fn merge_vehiclelayouts_files(files: &[PathBuf]) -> Result<String, DextaError> {
+        let mut layout_items = Vec::new();
+        let mut txd_items = Vec::new();
+        let mut header = String::new();
+
+        for path in files {
+            let content = fs::read_to_string(path)?;
+            let content_lower = content.to_lowercase();
+
+            if let Some(start_idx) = content_lower.find("<layouts>") {
+                if let Some(end_idx) = content_lower.find("</layouts>") {
+                    let block = &content[start_idx + "<Layouts>".len() .. end_idx];
+                    let trimmed = block.trim();
+                    if !trimmed.is_empty() {
+                        layout_items.push(trimmed.to_string());
+                    }
+                }
+            }
+
+            if let Some(start_idx) = content_lower.find("<txdrelationships>") {
+                if let Some(end_idx) = content_lower.find("</txdrelationships>") {
+                    let block = &content[start_idx + "<txdRelationships>".len() .. end_idx];
+                    let trimmed = block.trim();
+                    if !trimmed.is_empty() {
+                        txd_items.push(trimmed.to_string());
+                    }
+                }
+            }
+
+            if header.is_empty() {
+                if let Some(root_start) = content_lower.find("<cvehiclemetadatamgr") {
+                    header = content[..root_start].to_string();
+                }
+            }
+        }
+
+        if header.is_empty() {
+            header = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n".to_string();
+        }
+
+        let merged_layouts = layout_items.join("\n      ");
+        let merged_txd = txd_items.join("\n      ");
+
+        let merged_xml = format!(
+            "{header}<CVehicleMetadataMgr>\n  <txdRelationships>\n      {txd}\n  </txdRelationships>\n  <Layouts>\n      {layouts}\n  </Layouts>\n</CVehicleMetadataMgr>",
+            header = header,
+            txd = merged_txd,
+            layouts = merged_layouts
+        );
+
+        Ok(merged_xml)
+    }
+
+    /// Auto-detect the root XML element tag from content.
+    /// Skips XML declarations and comments, finds the first real element.
+    pub fn detect_root_tag(content: &str) -> Option<String> {
+        for line in content.lines() {
+            let trimmed = line.trim();
+            if trimmed.is_empty() || trimmed.starts_with("<?") || trimmed.starts_with("<!--") {
+                continue;
+            }
+            if trimmed.starts_with('<') && !trimmed.starts_with("</") {
+                // Extract tag name: <TagName ...> or <TagName>
+                let tag_start = 1; // skip '<'
+                let tag_end = trimmed[tag_start..]
+                    .find(|c: char| c == '>' || c == ' ' || c == '/')
+                    .unwrap_or(trimmed.len() - tag_start);
+                let tag_name = &trimmed[tag_start..tag_start + tag_end];
+                if !tag_name.is_empty() {
+                    return Some(tag_name.to_string());
+                }
+            }
+        }
+        None
+    }
     pub fn merge_root_items_xml(files: &[PathBuf], target_root: &str) -> Result<String, DextaError> {
         let mut items = Vec::new();
         let mut header = String::new();
@@ -366,21 +446,74 @@ impl VehicleMerger {
                     warnings.push("Failed merging carvariations.meta files structurally, skipped.".to_string());
                 }
             } else if meta_name == "carcols.meta" {
-                // carcols has lights & kits list. Let's merge standard items or copy first
-                if let Ok(content) = fs::read_to_string(&paths[0]) {
+                // carcols has <Kits> and <Lights> sections (siren/light configurations)
+                if let Ok(xml) = Self::merge_carcols_files(&paths) {
+                    fs::write(&dest_meta_path, xml)?;
+                    merged_meta_files.push(meta_name);
+                } else {
+                    warnings.push("Failed merging carcols.meta files structurally, skipped.".to_string());
+                }
+            } else if meta_name == "vehiclelayouts.meta" {
+                // vehiclelayouts has <Layouts> and <txdRelationships> sections
+                if let Ok(xml) = Self::merge_vehiclelayouts_files(&paths) {
+                    fs::write(&dest_meta_path, xml)?;
+                    merged_meta_files.push(meta_name);
+                } else {
+                    warnings.push("Failed merging vehiclelayouts.meta files structurally, skipped.".to_string());
+                }
+            } else if meta_name == "dlctext.meta" {
+                // dlctext.meta: merge root items (CExtraTextMetaFile or similar)
+                if paths.len() == 1 {
+                    let content = fs::read_to_string(&paths[0])?;
                     fs::write(&dest_meta_path, content)?;
                     merged_meta_files.push(meta_name);
-                    if paths.len() > 1 {
-                        warnings.push("carcols.meta merger is restricted: copied the first file's attributes. Secondary kits may require manual merge.".to_string());
-                    }
+                } else if let Ok(xml) = Self::merge_root_items_xml(&paths, "CExtraTextMetaFile") {
+                    fs::write(&dest_meta_path, xml)?;
+                    merged_meta_files.push(meta_name);
+                } else {
+                    // Fallback: copy first
+                    let content = fs::read_to_string(&paths[0])?;
+                    fs::write(&dest_meta_path, content)?;
+                    merged_meta_files.push(meta_name);
+                }
+            } else if meta_name.contains("contentunlocks") {
+                // *contentunlocks.meta files: merge root items
+                if paths.len() == 1 {
+                    let content = fs::read_to_string(&paths[0])?;
+                    fs::write(&dest_meta_path, content)?;
+                    merged_meta_files.push(meta_name);
+                } else if let Ok(xml) = Self::merge_root_items_xml(&paths, "SContentUnlocks") {
+                    fs::write(&dest_meta_path, xml)?;
+                    merged_meta_files.push(meta_name);
+                } else {
+                    // Fallback: copy first
+                    let content = fs::read_to_string(&paths[0])?;
+                    fs::write(&dest_meta_path, content)?;
+                    merged_meta_files.push(meta_name);
                 }
             } else {
-                // Copy the first one for other unknown metas
-                if let Ok(content) = fs::read_to_string(&paths[0]) {
+                // For any other unknown meta types: attempt generic XML merge via root items
+                if paths.len() == 1 {
+                    let content = fs::read_to_string(&paths[0])?;
                     fs::write(&dest_meta_path, content)?;
-                    merged_meta_files.push(meta_name.clone());
-                    if paths.len() > 1 {
-                        warnings.push(format!("Meta file type '{}' cannot be safely merged automatically; copied first instance.", meta_name));
+                    merged_meta_files.push(meta_name);
+                } else {
+                    // Try to detect root element and merge
+                    let first_content = fs::read_to_string(&paths[0])?;
+                    let root_tag = Self::detect_root_tag(&first_content);
+                    if let Some(ref root) = root_tag {
+                        if let Ok(xml) = Self::merge_root_items_xml(&paths, root) {
+                            fs::write(&dest_meta_path, xml)?;
+                            merged_meta_files.push(meta_name);
+                        } else {
+                            fs::write(&dest_meta_path, &first_content)?;
+                            merged_meta_files.push(meta_name.clone());
+                            warnings.push(format!("Meta '{}': XML merge failed, copied first instance.", meta_name));
+                        }
+                    } else {
+                        fs::write(&dest_meta_path, &first_content)?;
+                        merged_meta_files.push(meta_name.clone());
+                        warnings.push(format!("Meta '{}': could not detect XML root, copied first instance.", meta_name));
                     }
                 }
             }
@@ -411,6 +544,10 @@ impl VehicleMerger {
                     fxmanifest.push_str("data_file 'CARCOLS_FILE' 'data/carcols.meta'\n");
                 } else if meta == "vehiclelayouts.meta" {
                     fxmanifest.push_str("data_file 'VEHICLE_LAYOUTS_FILE' 'data/vehiclelayouts.meta'\n");
+                } else if meta == "dlctext.meta" {
+                    fxmanifest.push_str("data_file 'EXTRA_TEXT_META_FILE' 'data/dlctext.meta'\n");
+                } else if meta.contains("contentunlocks") {
+                    fxmanifest.push_str(&format!("data_file 'CONTENT_UNLOCKING_META_FILE' 'data/{}'\n", meta));
                 }
             }
         }
