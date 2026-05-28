@@ -9,6 +9,7 @@ import { MetaFixer } from './pages/MetaFixer';
 import { DependencyScanner } from './pages/DependencyScanner';
 import { BuildExport } from './pages/BuildExport';
 import { Settings } from './pages/Settings';
+import { TextureOptimizer } from './pages/TextureOptimizer';
 import { useStore } from './store';
 
 function App() {
@@ -35,6 +36,8 @@ function App() {
         return <DependencyScanner />;
       case 'export':
         return <BuildExport />;
+      case 'optimizer':
+        return <TextureOptimizer />;
       case 'settings':
         return <Settings />;
       default:

@@ -134,6 +134,9 @@ export const Dashboard: React.FC = () => {
     export: settings.language === 'tr'
       ? 'Kaynakları temizleyip üretim için hazır paket oluşturun.'
       : 'Clean and export production-ready resource packages.',
+    optimizer: settings.language === 'tr'
+      ? 'YTD doku boyutlarını 16MB sınırının altında kalacak şekilde optimize edin.'
+      : 'Optimize YTD texture sizes to stay below the 16MB streaming budget.',
   };
 
   const featureCards = [
@@ -202,6 +205,17 @@ export const Dashboard: React.FC = () => {
       iconBg: 'bg-indigo-500/15',
       borderHover: 'hover:border-purple-500/30',
       actionText: t.actionExport
+    },
+    {
+      id: 'optimizer',
+      name: t.textureOptimizer,
+      desc: cardDescs.optimizer,
+      icon: Sparkles,
+      color: 'from-amber-600/20 to-yellow-600/20',
+      iconColor: 'text-amber-400',
+      iconBg: 'bg-amber-500/15',
+      borderHover: 'hover:border-amber-500/30',
+      actionText: t.actionOptimizer
     }
   ];
 

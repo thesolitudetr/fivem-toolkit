@@ -10,7 +10,8 @@ import {
   Link2, 
   Download, 
   Settings, 
-  Heart
+  Heart,
+  Sparkles
 } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
@@ -25,6 +26,7 @@ export const Sidebar: React.FC = () => {
     { id: 'fixer', label: t.metaFixer, icon: FileCode },
     { id: 'dependencies', label: t.dependencies, icon: Link2 },
     { id: 'export', label: t.buildExport, icon: Download },
+    { id: 'optimizer', label: t.textureOptimizer, icon: Sparkles },
     { id: 'settings', label: t.settings, icon: Settings },
   ];
 

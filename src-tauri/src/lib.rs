@@ -38,6 +38,7 @@ pub fn run() {
             commands::clear_history,
             commands::open_app_data_path,
             commands::read_text_file,
+            commands::optimize_textures,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

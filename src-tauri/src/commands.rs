@@ -221,3 +221,58 @@ pub fn read_text_file(path: String) -> Result<String, DextaError> {
     let content = std::fs::read_to_string(path)?;
     Ok(content)
 }
+
+#[tauri::command]
+pub fn optimize_textures(
+    app_handle: tauri::AppHandle,
+    path: String,
+    max_size: u32,
+) -> Result<String, DextaError> {
+    use tauri::Manager;
+    #[cfg(target_os = "windows")]
+    use std::os::windows::process::CommandExt;
+
+    let resource_dir = app_handle
+        .path()
+        .resource_dir()
+        .map_err(|e| DextaError::Other(format!("Failed to get resource dir: {}", e)))?;
+
+    let optimizer_path = resource_dir.join("bin").join("ytd-optimizer.exe");
+    let texconv_path = resource_dir.join("bin").join("texconv.exe");
+
+    if !optimizer_path.exists() {
+        return Err(DextaError::Other(format!(
+            "ytd-optimizer.exe not found at resource path: {}",
+            optimizer_path.display()
+        )));
+    }
+    if !texconv_path.exists() {
+        return Err(DextaError::Other(format!(
+            "texconv.exe not found at resource path: {}",
+            texconv_path.display()
+        )));
+    }
+
+    let mut cmd = std::process::Command::new(&optimizer_path);
+    cmd.arg(&path)
+       .arg(max_size.to_string())
+       .arg(&texconv_path);
+
+    #[cfg(target_os = "windows")]
+    cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+
+    let output = cmd.output()
+        .map_err(|e| DextaError::Other(format!("Failed to execute optimizer: {}", e)))?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+
+    if !output.status.success() {
+        return Err(DextaError::Other(format!(
+            "Optimizer exited with error:\n{}\n{}",
+            stdout, stderr
+        )));
+    }
+
+    Ok(stdout)
+}
