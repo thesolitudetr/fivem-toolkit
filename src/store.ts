@@ -240,13 +240,13 @@ export const useStore = create<AppState>((set, get) => ({
       if (!response.ok) throw new Error('Network response was not ok');
       const data = await response.json();
       const latest = data.tag_name;
-      const current = 'v0.1.3';
-      
+      const current = 'v0.1.4';
+
       const cleanCur = current.replace(/^v/, '');
       const cleanLat = latest.replace(/^v/, '');
       const curParts = cleanCur.split('.').map(Number);
       const latParts = cleanLat.split('.').map(Number);
-      
+
       let updateAvailable = false;
       for (let i = 0; i < Math.max(curParts.length, latParts.length); i++) {
         const curVal = curParts[i] || 0;
@@ -259,7 +259,7 @@ export const useStore = create<AppState>((set, get) => ({
           break;
         }
       }
-      
+
       set({ latestVersion: latest, updateAvailable, isCheckingUpdate: false });
     } catch (e) {
       console.error('Failed to check for updates:', e);
