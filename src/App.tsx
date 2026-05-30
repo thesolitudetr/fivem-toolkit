@@ -4,6 +4,7 @@ import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './pages/Dashboard';
 import { StreamAnalyzer } from './pages/StreamAnalyzer';
 import { VehicleMerger } from './pages/VehicleMerger';
+import { VehicleEditor } from './pages/VehicleEditor';
 import { PackBrowser } from './pages/PackBrowser';
 import { MetaFixer } from './pages/MetaFixer';
 import { DependencyScanner } from './pages/DependencyScanner';
@@ -16,7 +17,6 @@ function App() {
   const { currentPage, loadDb } = useStore();
 
   useEffect(() => {
-    // Load local AppData SQLite/JSON database configurations on start
     loadDb();
   }, [loadDb]);
 
@@ -28,6 +28,8 @@ function App() {
         return <StreamAnalyzer />;
       case 'merger':
         return <VehicleMerger />;
+      case 'editor':
+        return <VehicleEditor />;
       case 'browser':
         return <PackBrowser />;
       case 'fixer':

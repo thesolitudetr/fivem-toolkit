@@ -492,15 +492,61 @@ impl VehicleMerger {
         fs::create_dir_all(&stream_dest)?;
         fs::create_dir_all(&data_dest)?;
 
+        let temp_remap_dir = staging_path.join("temp_remapped");
+        fs::create_dir_all(&temp_remap_dir)?;
+
         let mut copied_stream_files = Vec::new();
         let mut warnings = Vec::new();
         let mut source_names = Vec::new();
+
+        // Sets and counters for ModKit & Siren resolution
+        let mut used_kit_ids = std::collections::HashSet::new();
+        let mut used_siren_ids = std::collections::HashSet::new();
+        let mut next_kit_id = 2500u32;
+        let mut next_siren_id = 200u32;
 
         // 1. Copy stream files & collect meta files by category
         let mut meta_by_type: HashMap<String, Vec<PathBuf>> = HashMap::new();
 
         for res in resources {
             source_names.push(res.name.clone());
+            
+            // Check if resource has carcols.meta and/or carvariations.meta to pre-remap conflicts
+            let carcols_file = res.files.iter().find(|f| f.name.to_lowercase() == "carcols.meta");
+            let carvariations_file = res.files.iter().find(|f| f.name.to_lowercase() == "carvariations.meta");
+
+            let mut remapped_carcols = None;
+            let mut remapped_carvars = None;
+
+            if let Some(cc_file) = carcols_file {
+                if let Ok(cc_content) = fs::read_to_string(&cc_file.path) {
+                    let cv_content = if let Some(cv_file) = carvariations_file {
+                        fs::read_to_string(&cv_file.path).unwrap_or_default()
+                    } else {
+                        String::new()
+                    };
+
+                    let (new_cc, new_cv) = remap_conflicts(
+                        &cc_content,
+                        &cv_content,
+                        &mut used_kit_ids,
+                        &mut used_siren_ids,
+                        &mut next_kit_id,
+                        &mut next_siren_id,
+                    );
+                    
+                    let cc_temp_path = temp_remap_dir.join(format!("{}_carcols.meta", res.name));
+                    fs::write(&cc_temp_path, &new_cc)?;
+                    remapped_carcols = Some(cc_temp_path);
+
+                    if carvariations_file.is_some() {
+                        let cv_temp_path = temp_remap_dir.join(format!("{}_carvariations.meta", res.name));
+                        fs::write(&cv_temp_path, &new_cv)?;
+                        remapped_carvars = Some(cv_temp_path);
+                    }
+                }
+            }
+
             let is_stream_asset = |filename: &str| {
                 let lower = filename.to_lowercase();
                 let ext = Path::new(&lower)
@@ -525,9 +571,17 @@ impl VehicleMerger {
                     }
                 } else if file.relative_path.ends_with(".meta") {
                     let meta_name = file.name.to_lowercase();
+                    let final_path = if meta_name == "carcols.meta" && remapped_carcols.is_some() {
+                        remapped_carcols.clone().unwrap()
+                    } else if meta_name == "carvariations.meta" && remapped_carvars.is_some() {
+                        remapped_carvars.clone().unwrap()
+                    } else {
+                        src_path.to_path_buf()
+                    };
+
                     meta_by_type.entry(meta_name)
                         .or_default()
-                        .push(src_path.to_path_buf());
+                        .push(final_path);
                 }
             }
         }
@@ -609,3 +663,82 @@ impl VehicleMerger {
         Ok(report)
     }
 }
+
+// Private remapping helpers for ModKits and Sirens
+fn remap_conflicts(
+    carcols_content: &str,
+    carvariations_content: &str,
+    used_kit_ids: &mut std::collections::HashSet<u32>,
+    used_siren_ids: &mut std::collections::HashSet<u32>,
+    next_kit_id: &mut u32,
+    next_siren_id: &mut u32,
+) -> (String, String) {
+    let mut updated_carcols = carcols_content.to_string();
+    let mut updated_carvariations = carvariations_content.to_string();
+
+    // 1. Remap ModKit IDs
+    let kits = VehicleMerger::extract_items(&updated_carcols);
+    for kit in kits {
+        if kit.contains("<kitName>") {
+            if let Some(id_val) = extract_value_attr_u32(&kit, "id") {
+                let mut current_id = id_val;
+                if used_kit_ids.contains(&current_id) {
+                    while used_kit_ids.contains(next_kit_id) {
+                        *next_kit_id += 1;
+                    }
+                    let new_id = *next_kit_id;
+                    *next_kit_id += 1;
+                    
+                    let new_kit = replace_value_attr_u32(&kit, "id", new_id);
+                    updated_carcols = updated_carcols.replace(&kit, &new_kit);
+                    current_id = new_id;
+                }
+                used_kit_ids.insert(current_id);
+            }
+        }
+    }
+
+    // 2. Remap Siren IDs
+    let sirens = VehicleMerger::extract_items(&updated_carcols);
+    for siren in sirens {
+        // Items in carcols containing sirens list or textureName count as sirens
+        if siren.contains("<sirens>") || siren.contains("<textureName>") {
+            if let Some(id_val) = extract_value_attr_u32(&siren, "id") {
+                if id_val != 0 {
+                    let mut current_id = id_val;
+                    if used_siren_ids.contains(&current_id) {
+                        while used_siren_ids.contains(next_siren_id) {
+                            *next_siren_id += 1;
+                        }
+                        let new_id = *next_siren_id;
+                        *next_siren_id += 1;
+
+                        let new_siren = replace_value_attr_u32(&siren, "id", new_id);
+                        updated_carcols = updated_carcols.replace(&siren, &new_siren);
+
+                        // Replace all sirenSettings matching OLD_ID inside carvariations
+                        let siren_settings_re = Regex::new(&format!(r#"<sirenSettings\s+value="{}""#, current_id)).unwrap();
+                        updated_carvariations = siren_settings_re.replace_all(&updated_carvariations, &format!(r#"<sirenSettings value="{}""#, new_id)).to_string();
+                        
+                        current_id = new_id;
+                    }
+                    used_siren_ids.insert(current_id);
+                }
+            }
+        }
+    }
+
+    (updated_carcols, updated_carvariations)
+}
+
+fn extract_value_attr_u32(item: &str, tag: &str) -> Option<u32> {
+    let re = Regex::new(&format!(r#"<{}\s+value="([^"]+)""#, regex::escape(tag))).unwrap();
+    re.captures(item)
+        .and_then(|cap| cap[1].parse::<u32>().ok())
+}
+
+fn replace_value_attr_u32(item: &str, tag: &str, value: u32) -> String {
+    let re = Regex::new(&format!(r#"(<{}\s+value=")[^"]+(")"#, regex::escape(tag))).unwrap();
+    re.replace(item, &format!("${{1}}{}${{2}}", value)).to_string()
+}
+

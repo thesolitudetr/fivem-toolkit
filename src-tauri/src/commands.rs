@@ -284,3 +284,138 @@ pub fn optimize_textures(
         Ok(stdout)
     }
 }
+
+#[tauri::command]
+pub fn extract_vehicle(
+    state: State<'_, AppState>,
+    pack_path: String,
+    vehicle_name: String,
+    output_dir: String,
+) -> Result<String, DextaError> {
+    let result_path = crate::vehicle_extractor::VehicleExtractor::extract(&pack_path, &vehicle_name, &output_dir)?;
+
+    // Save recent activity
+    let db = {
+        let storage = state.storage.lock().map_err(|e| DextaError::Other(e.to_string()))?;
+        storage.load()?
+    };
+    let mut updated_db = db.clone();
+    updated_db.recent_activity.insert(0, RecentActivity {
+        id: uuid::Uuid::new_v4().to_string(),
+        activity_type: "export".to_string(),
+        resource_name: vehicle_name.clone(),
+        path: result_path.clone(),
+        timestamp: chrono::Local::now().to_rfc3339(),
+        message: format!("Extracted vehicle '{}' from merged pack", vehicle_name),
+    });
+
+    let storage = state.storage.lock().map_err(|e| DextaError::Other(e.to_string()))?;
+    storage.save(&updated_db)?;
+
+    Ok(result_path)
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
+pub struct ResourceStatus {
+    pub name: String,
+    pub path: String,
+    pub manifest_type: String, // "fxmanifest" | "resource" | "none"
+    pub issues_count: usize,
+}
+
+#[tauri::command]
+pub fn get_ytd_textures(ytd_path: String) -> Result<Vec<String>, DextaError> {
+    crate::ytd_parser::YtdParser::parse_texture_names(ytd_path)
+}
+
+#[tauri::command]
+pub fn load_vehicle_editor_configs(dir_path: String) -> Result<Vec<crate::vehicle_editor::VehicleConfig>, DextaError> {
+    crate::vehicle_editor::VehicleEditor::load_configs(&dir_path)
+}
+
+#[tauri::command]
+pub fn save_vehicle_editor_configs(dir_path: String, configs: Vec<crate::vehicle_editor::VehicleConfig>) -> Result<(), DextaError> {
+    crate::vehicle_editor::VehicleEditor::save_configs(&dir_path, configs)
+}
+
+#[tauri::command]
+pub fn scan_server_resources(server_resources_path: String) -> Result<Vec<ResourceStatus>, DextaError> {
+    let root = Path::new(&server_resources_path);
+    if !root.exists() || !root.is_dir() {
+        return Err(DextaError::Validation("Invalid server resources directory".to_string()));
+    }
+
+    let mut resources = Vec::new();
+
+    for entry in walkdir::WalkDir::new(root)
+        .max_depth(4)
+        .into_iter()
+        .filter_map(|e| e.ok())
+    {
+        if entry.path().is_dir() {
+            let has_fx = entry.path().join("fxmanifest.lua").exists();
+            let has_res = entry.path().join("__resource.lua").exists();
+
+            if has_fx || has_res {
+                let name = entry.file_name().to_string_lossy().to_string();
+                if entry.path() == root {
+                    continue;
+                }
+
+                let manifest_type = if has_fx {
+                    "fxmanifest".to_string()
+                } else {
+                    "resource".to_string()
+                };
+
+                let issues_count = if has_res { 1 } else { 0 };
+
+                resources.push(ResourceStatus {
+                    name,
+                    path: entry.path().to_string_lossy().to_string().replace('\\', "/"),
+                    manifest_type,
+                    issues_count,
+                });
+            }
+        }
+    }
+
+    Ok(resources)
+}
+
+#[tauri::command]
+pub fn bulk_fix_resources(state: State<'_, AppState>, resource_paths: Vec<String>) -> Result<usize, DextaError> {
+    let mut fixed_count = 0;
+
+    for path in &resource_paths {
+        if let Ok(resource) = ResourceDetector::scan_resource(path) {
+            if resource.manifest_type == "resource" || resource.manifest_type == "none" {
+                if crate::meta_fixer::MetaFixer::fix_manifest(&resource, "", true).is_ok() {
+                    fixed_count += 1;
+                }
+            }
+        }
+    }
+
+    // Save recent activity
+    let db = {
+        let storage = state.storage.lock().map_err(|e| DextaError::Other(e.to_string()))?;
+        storage.load()?
+    };
+    let mut updated_db = db.clone();
+    updated_db.recent_activity.insert(0, RecentActivity {
+        id: uuid::Uuid::new_v4().to_string(),
+        activity_type: "fix".to_string(),
+        resource_name: format!("{} resources", fixed_count),
+        path: "".to_string(),
+        timestamp: chrono::Local::now().to_rfc3339(),
+        message: format!("Bulk meta fixer converted {} legacy resources", fixed_count),
+    });
+
+    let storage = state.storage.lock().map_err(|e| DextaError::Other(e.to_string()))?;
+    storage.save(&updated_db)?;
+
+    Ok(fixed_count)
+}
+
+

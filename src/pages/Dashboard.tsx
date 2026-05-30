@@ -18,7 +18,8 @@ import {
   Layers,
   HardDrive,
   CheckCircle2,
-  Search
+  Search,
+  Sliders
 } from 'lucide-react';
 
 export const Dashboard: React.FC = () => {
@@ -137,6 +138,9 @@ export const Dashboard: React.FC = () => {
     optimizer: settings.language === 'tr'
       ? 'YTD doku boyutlarını 16MB sınırının altında kalacak şekilde optimize edin.'
       : 'Optimize YTD texture sizes to stay below the 16MB streaming budget.',
+    editor: settings.language === 'tr'
+      ? 'Araç sürüş fiziklerini görsel olarak düzenleyin ve motor seslerini değiştirin.'
+      : 'Tweak vehicle physics handling parameters and swap engine sound hashes visually.',
   };
 
   const featureCards = [
@@ -150,6 +154,17 @@ export const Dashboard: React.FC = () => {
       iconBg: 'bg-violet-500/15',
       borderHover: 'hover:border-violet-500/30',
       actionText: t.actionMerger
+    },
+    {
+      id: 'editor',
+      name: t.vehicleEditor,
+      desc: cardDescs.editor,
+      icon: Sliders,
+      color: 'from-fuchsia-500/20 to-pink-500/20',
+      iconColor: 'text-fuchsia-400',
+      iconBg: 'bg-fuchsia-500/15',
+      borderHover: 'hover:border-fuchsia-500/30',
+      actionText: t.actionEditor
     },
     {
       id: 'analyzer',
@@ -288,7 +303,7 @@ export const Dashboard: React.FC = () => {
         </div>
 
         {/* Action Grid */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-4 gap-3">
           {featureCards.map((card) => {
             const Icon = card.icon;
             return (

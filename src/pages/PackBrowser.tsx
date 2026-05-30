@@ -10,17 +10,24 @@ import {
   Plus, 
   ExternalLink,
   Trash2,
-  Compass
+  Compass,
+  CheckCircle2,
+  Loader2,
+  Sliders
 } from 'lucide-react';
 
 export const PackBrowser: React.FC = () => {
-  const { settings } = useStore();
+  const { settings, loadDb } = useStore();
   const t = translations[settings.language] || translations.en;
 
   const [packPath, setPackPath] = useState('');
   const [manifestData, setManifestData] = useState<any>(null);
   const [errorMsg, setErrorMsg] = useState('');
   const [selectedVehicle, setSelectedVehicle] = useState<string | null>(null);
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [successMsg, setSuccessMsg] = useState('');
+  const [textures, setTextures] = useState<string[]>([]);
+  const [isLoadingTextures, setIsLoadingTextures] = useState(false);
 
   const handleOpenPack = async () => {
     try {
@@ -74,12 +81,56 @@ export const PackBrowser: React.FC = () => {
     };
   };
 
-  const handleExtractVehicle = async (_veh: string) => {
-    // TODO: Implement real vehicle extraction from merged pack
-    // This requires a dedicated Rust command to copy individual vehicle
-    // stream + meta files into a standalone resource folder structure.
-    // For now, the button is visible but the feature is not yet implemented.
-    return;
+  const handleExtractVehicle = async (veh: string) => {
+    try {
+      setErrorMsg('');
+      setSuccessMsg('');
+      const selected = await open({
+        directory: true,
+        multiple: false,
+        title: t.selectExtractionDest
+      });
+
+      if (selected && typeof selected === 'string') {
+        setIsExtracting(true);
+        await invoke('extract_vehicle', {
+          packPath,
+          vehicleName: veh,
+          outputDir: selected
+        });
+        setSuccessMsg(t.extractionSuccess);
+        await loadDb();
+      }
+    } catch (e: any) {
+      console.error(e);
+      setErrorMsg(t.extractionFailed.replace('{message}', e.message || e.toString()));
+    } finally {
+      setIsExtracting(false);
+    }
+  };
+
+  const handleSelectVehicle = async (veh: string) => {
+    setSelectedVehicle(veh);
+    setTextures([]);
+    if (!manifestData || !manifestData.copied_stream_files) return;
+
+    const ytdName = `${veh.toLowerCase()}.ytd`;
+    const ytdFile = manifestData.copied_stream_files.find(
+      (f: string) => f.toLowerCase() === ytdName || (f.toLowerCase().startsWith(veh.toLowerCase()) && f.toLowerCase().endsWith('.ytd'))
+    );
+
+    if (ytdFile) {
+      setIsLoadingTextures(true);
+      try {
+        const fullPath = `${packPath}/stream/${ytdFile}`;
+        const texList = await invoke<string[]>('get_ytd_textures', { ytdPath: fullPath });
+        setTextures(texList);
+      } catch (e) {
+        console.error('Failed to load YTD textures:', e);
+      } finally {
+        setIsLoadingTextures(false);
+      }
+    }
   };
 
   return (
@@ -119,6 +170,20 @@ export const PackBrowser: React.FC = () => {
         </div>
       )}
 
+      {successMsg && (
+        <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold flex items-center gap-2">
+          <CheckCircle2 size={16} />
+          <span>{successMsg}</span>
+        </div>
+      )}
+
+      {isExtracting && (
+        <div className="p-4 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-semibold flex items-center gap-2">
+          <Loader2 size={16} className="animate-spin" />
+          <span>{t.extractingState}</span>
+        </div>
+      )}
+
       {manifestData ? (
         <div className="grid grid-cols-3 gap-6">
           {/* List of Vehicles */}
@@ -132,7 +197,7 @@ export const PackBrowser: React.FC = () => {
               {manifestData.source_resources.map((veh: string, idx: number) => (
                 <div 
                   key={idx}
-                  onClick={() => setSelectedVehicle(veh)}
+                  onClick={() => handleSelectVehicle(veh)}
                   className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
                     selectedVehicle === veh 
                       ? 'bg-indigo-600/10 border-indigo-500 text-indigo-400' 
@@ -146,7 +211,7 @@ export const PackBrowser: React.FC = () => {
                   <div className="flex items-center gap-2">
                     <button 
                       onClick={(e) => { e.stopPropagation(); handleExtractVehicle(veh); }}
-                      disabled={true}
+                      disabled={isExtracting}
                       className="px-2.5 py-1 rounded-lg bg-slate-850 hover:bg-slate-800 text-[10px] font-bold text-slate-400 hover:text-white border border-white/5 transition-all flex items-center gap-1 cursor-pointer disabled:opacity-40"
                     >
                       <ExternalLink size={10} />
@@ -187,6 +252,30 @@ export const PackBrowser: React.FC = () => {
                 <span>{t.addVehicleToPack}</span>
               </button>
             </div>
+
+            {selectedVehicle && (
+              <div className="glass-panel p-5 rounded-2xl border border-white/5 flex flex-col gap-4">
+                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                  <Sliders size={16} className="text-violet-400" />
+                  <span>{t.ytdTexturesTitle} ({selectedVehicle})</span>
+                </h3>
+                
+                <div className="flex flex-col gap-1.5 max-h-[250px] overflow-y-auto pr-1">
+                  {isLoadingTextures ? (
+                    <span className="text-[10px] text-slate-500 italic animate-pulse">{t.scanningState}</span>
+                  ) : textures.length > 0 ? (
+                    textures.map((tex, i) => (
+                      <div key={i} className="px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-900/60 font-mono text-[9px] text-slate-400 flex items-center gap-1.5">
+                        <span className="w-1 h-1 rounded-full bg-cyan-500" />
+                        <span>{tex}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <span className="text-[10px] text-slate-500 italic">{t.noTexturesInYtd}</span>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       ) : (

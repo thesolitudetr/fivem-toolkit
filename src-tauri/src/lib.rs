@@ -3,6 +3,9 @@ pub mod storage;
 pub mod scanner;
 pub mod stream_analyzer;
 pub mod vehicle_merger;
+pub mod vehicle_extractor;
+pub mod vehicle_editor;
+pub mod ytd_parser;
 pub mod meta_fixer;
 pub mod dependency_scanner;
 pub mod exporter;
@@ -39,6 +42,12 @@ pub fn run() {
             commands::open_app_data_path,
             commands::read_text_file,
             commands::optimize_textures,
+            commands::extract_vehicle,
+            commands::get_ytd_textures,
+            commands::load_vehicle_editor_configs,
+            commands::save_vehicle_editor_configs,
+            commands::scan_server_resources,
+            commands::bulk_fix_resources,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

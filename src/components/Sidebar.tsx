@@ -11,7 +11,8 @@ import {
   Download, 
   Settings, 
   Heart,
-  Sparkles
+  Sparkles,
+  Sliders
 } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
@@ -21,6 +22,7 @@ export const Sidebar: React.FC = () => {
   const menuItems = [
     { id: 'dashboard', label: t.dashboard, icon: LayoutDashboard },
     { id: 'merger', label: t.vehicleMerger, icon: Car },
+    { id: 'editor', label: t.vehicleEditor, icon: Sliders },
     { id: 'analyzer', label: t.streamAnalyzer, icon: Activity },
     { id: 'browser', label: t.packBrowser, icon: FolderOpen },
     { id: 'fixer', label: t.metaFixer, icon: FileCode },

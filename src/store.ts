@@ -240,7 +240,7 @@ export const useStore = create<AppState>((set, get) => ({
       if (!response.ok) throw new Error('Network response was not ok');
       const data = await response.json();
       const latest = data.tag_name;
-      const current = 'v0.1.5';
+      const current = 'v0.2.0';
 
       const cleanCur = current.replace(/^v/, '');
       const cleanLat = latest.replace(/^v/, '');
