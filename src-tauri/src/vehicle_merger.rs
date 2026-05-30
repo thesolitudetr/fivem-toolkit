@@ -247,28 +247,85 @@ impl VehicleMerger {
         nodes
     }
 
-    // Helper to extract <Item> elements from a block of XML
+    // Helper to extract <Item> elements from a block of XML, tracking nesting depth
     fn extract_items(content: &str) -> Vec<String> {
         let mut items = Vec::new();
         let mut pos = 0;
+
         while let Some(start_idx) = content[pos..].find("<Item") {
             let abs_start = pos + start_idx;
-            if let Some(close_idx) = content[abs_start..].find("</Item>") {
-                let abs_close_end = abs_start + close_idx + "</Item>".len();
-                let item_block = content[abs_start..abs_close_end].to_string();
-                items.push(item_block);
-                pos = abs_close_end;
-            } else {
-                // Check self-closing Item
-                if let Some(tag_end) = content[abs_start..].find('>') {
-                    let abs_tag_end = abs_start + tag_end;
-                    let tag_header = &content[abs_start..=abs_tag_end];
-                    if tag_header.ends_with("/>") {
-                        items.push(tag_header.to_string());
-                        pos = abs_tag_end + 1;
+
+            // Check self-closing Item
+            if let Some(tag_end) = content[abs_start..].find('>') {
+                let abs_tag_end = abs_start + tag_end;
+                let header = &content[abs_start..=abs_tag_end];
+                if header.ends_with("/>") {
+                    items.push(header.to_string());
+                    pos = abs_tag_end + 1;
+                    continue;
+                }
+            }
+
+            // Nesting depth tracker
+            let mut depth = 0;
+            let mut search_pos = abs_start;
+            let mut found_match = false;
+            let mut match_end_idx = 0;
+
+            while let Some(next_tag) = content[search_pos..].find('<') {
+                let abs_next_tag = search_pos + next_tag;
+                if content[abs_next_tag..].starts_with("<!--") {
+                    if let Some(comment_end) = content[abs_next_tag..].find("-->") {
+                        search_pos = abs_next_tag + comment_end + 3;
                         continue;
                     }
                 }
+                if content[abs_next_tag..].starts_with("<?") {
+                    if let Some(pi_end) = content[abs_next_tag..].find("?>") {
+                        search_pos = abs_next_tag + pi_end + 2;
+                        continue;
+                    }
+                }
+
+                if let Some(tag_end) = content[abs_next_tag..].find('>') {
+                    let abs_tag_end = abs_next_tag + tag_end;
+                    let tag_header = &content[abs_next_tag + 1..abs_tag_end];
+
+                    let is_closing = tag_header.starts_with('/');
+                    let is_self_closing = tag_header.ends_with('/');
+
+                    let clean_header = if is_closing {
+                        &tag_header[1..]
+                    } else if is_self_closing {
+                        &tag_header[..tag_header.len() - 1]
+                    } else {
+                        tag_header
+                    };
+
+                    let tag_name = clean_header.trim().split_whitespace().next().unwrap_or("");
+                    if tag_name == "Item" {
+                        if is_closing {
+                            depth -= 1;
+                            if depth == 0 {
+                                found_match = true;
+                                match_end_idx = abs_tag_end + 1;
+                                break;
+                            }
+                        } else if !is_self_closing {
+                            depth += 1;
+                        }
+                    }
+                    search_pos = abs_tag_end + 1;
+                } else {
+                    search_pos = abs_next_tag + 1;
+                }
+            }
+
+            if found_match {
+                let item_block = content[abs_start..match_end_idx].to_string();
+                items.push(item_block);
+                pos = match_end_idx;
+            } else {
                 pos = abs_start + 1;
             }
         }
@@ -444,12 +501,28 @@ impl VehicleMerger {
 
         for res in resources {
             source_names.push(res.name.clone());
+            let is_stream_asset = |filename: &str| {
+                let lower = filename.to_lowercase();
+                let ext = Path::new(&lower)
+                    .extension()
+                    .and_then(|e| e.to_str())
+                    .unwrap_or("");
+                !matches!(ext, "png" | "dds" | "txt" | "json" | "md" | "git" | "db" | "ini" | "cfg" | "bak")
+            };
+
             for file in &res.files {
                 let src_path = Path::new(&file.path);
                 if file.relative_path.to_lowercase().starts_with("stream/") {
-                    let dest_file = stream_dest.join(&file.name);
-                    fs::copy(src_path, &dest_file)?;
-                    copied_stream_files.push(file.name.clone());
+                    if is_stream_asset(&file.name) {
+                        let dest_file = stream_dest.join(&file.name);
+                        fs::copy(src_path, &dest_file)?;
+                        copied_stream_files.push(file.name.clone());
+                    } else {
+                        warnings.push(format!(
+                            "Skipped copying non-streaming asset '{}' from stream folder.",
+                            file.name
+                        ));
+                    }
                 } else if file.relative_path.ends_with(".meta") {
                     let meta_name = file.name.to_lowercase();
                     meta_by_type.entry(meta_name)
@@ -489,19 +562,20 @@ impl VehicleMerger {
             fxmanifest.push_str("}\n\n");
 
             for meta in &merged_meta_files {
-                if meta == "vehicles.meta" {
-                    fxmanifest.push_str("data_file 'VEHICLE_METADATA_FILE' 'data/vehicles.meta'\n");
-                } else if meta == "handling.meta" {
-                    fxmanifest.push_str("data_file 'HANDLING_FILE' 'data/handling.meta'\n");
-                } else if meta == "carvariations.meta" {
-                    fxmanifest.push_str("data_file 'VEHICLE_VARIATION_FILE' 'data/carvariations.meta'\n");
-                } else if meta == "carcols.meta" {
-                    fxmanifest.push_str("data_file 'CARCOLS_FILE' 'data/carcols.meta'\n");
-                } else if meta == "vehiclelayouts.meta" {
-                    fxmanifest.push_str("data_file 'VEHICLE_LAYOUTS_FILE' 'data/vehiclelayouts.meta'\n");
-                } else if meta == "dlctext.meta" {
-                    fxmanifest.push_str("data_file 'EXTRA_TEXT_META_FILE' 'data/dlctext.meta'\n");
-                } else if meta.contains("contentunlocks") {
+                let meta_lower = meta.to_lowercase();
+                if meta_lower == "vehicles.meta" || meta_lower.contains("vehicles") {
+                    fxmanifest.push_str(&format!("data_file 'VEHICLE_METADATA_FILE' 'data/{}'\n", meta));
+                } else if meta_lower == "handling.meta" || meta_lower.contains("handling") {
+                    fxmanifest.push_str(&format!("data_file 'HANDLING_FILE' 'data/{}'\n", meta));
+                } else if meta_lower == "carvariations.meta" || meta_lower.contains("carvariations") {
+                    fxmanifest.push_str(&format!("data_file 'VEHICLE_VARIATION_FILE' 'data/{}'\n", meta));
+                } else if meta_lower == "carcols.meta" || meta_lower.contains("carcols") {
+                    fxmanifest.push_str(&format!("data_file 'CARCOLS_FILE' 'data/{}'\n", meta));
+                } else if meta_lower == "vehiclelayouts.meta" || meta_lower.contains("vehiclelayouts") || meta_lower.contains("layout") {
+                    fxmanifest.push_str(&format!("data_file 'VEHICLE_LAYOUTS_FILE' 'data/{}'\n", meta));
+                } else if meta_lower == "dlctext.meta" || meta_lower.contains("dlctext") {
+                    fxmanifest.push_str(&format!("data_file 'DLC_TEXT_FILE' 'data/{}'\n", meta));
+                } else if meta_lower.contains("contentunlocks") {
                     fxmanifest.push_str(&format!("data_file 'CONTENT_UNLOCKING_META_FILE' 'data/{}'\n", meta));
                 }
             }
